@@ -41,7 +41,12 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $user,
+                'user' => $user ? [
+                    ...$user->toArray(),
+                    'is_admin' => $user->isAdmin(),
+                    'can_manage_tournaments' => $user->hasPermission('tournaments.view'),
+                    'role_names' => $user->roleNames()->all(),
+                ] : null,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'currentTeam' => fn () => $user?->currentTeam ? $user->toUserTeam($user->currentTeam) : null,

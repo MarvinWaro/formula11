@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan *)",
+      "Bash(vendor/bin/pint --dirty --format agent)",
+      "Bash(npm run *)",
+      "Bash(npx prettier *)",
+      "Bash(npx tsc *)",
+      "Bash(npm install *)",
+      "Bash(Get-ChildItem \"c:\\\\Users\\\\MARVIN\\\\projects\\\\formula11\\\\database\\\\migrations\" -Filter \"*team*\")"
+    ]
+  }
+}
