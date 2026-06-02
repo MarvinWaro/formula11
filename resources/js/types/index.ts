@@ -1,4 +1,10 @@
+export type * from './admin';
 export type * from './auth';
+export type * from './heis';
 export type * from './navigation';
+export type * from './player-tournaments';
+export type * from './public-registration';
+export type * from './scoring';
 export type * from './teams';
+export type * from './tournaments';
 export type * from './ui';

@@ -14,6 +14,7 @@ test('login screen can be rendered', function () {
 
 test('users can authenticate using the login screen', function () {
     $user = User::factory()->create();
+    $team = $user->currentTeam;
 
     $response = $this->post(route('login.store'), [
         'email' => $user->email,
@@ -21,7 +22,32 @@ test('users can authenticate using the login screen', function () {
     ]);
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard'));
+    $response->assertRedirect(route('dashboard', ['current_team' => $team->slug]));
+});
+
+test('authenticated users visiting login are redirected to their current team dashboard', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('login'));
+
+    $response->assertRedirect(route('dashboard', ['current_team' => $team->slug]));
+});
+
+test('authenticated users without teams are redirected from login safely', function () {
+    $user = User::create([
+        'name' => 'Legacy User',
+        'email' => 'legacy@example.com',
+        'password' => bcrypt('password'),
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('login'));
+
+    $response->assertRedirect(route('home'));
 });
 
 test('passkey login response redirects to the current team dashboard', function () {

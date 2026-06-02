@@ -22,10 +22,10 @@ class TeamMemberController extends Controller
 
         $newRole = TeamRole::from($request->validated('role'));
 
-        $team->memberships()
-            ->where('user_id', $user->id)
-            ->firstOrFail()
-            ->update(['role' => $newRole]);
+        $team->members()->updateExistingPivot($user->id, [
+            'role' => $newRole->value,
+            'updated_at' => now(),
+        ]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member role updated.')]);
 

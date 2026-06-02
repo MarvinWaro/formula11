@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Admin\HeiController;
+use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Teams\TeamController;
@@ -43,5 +46,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::post('settings/teams/{team}/invitations', [TeamInvitationController::class, 'store'])->name('teams.invitations.store');
         Route::delete('settings/teams/{team}/invitations/{invitation}', [TeamInvitationController::class, 'destroy'])->name('teams.invitations.destroy');
+    });
+
+    Route::middleware('admin')->prefix('settings/admin')->name('admin.')->group(function () {
+        Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
+        Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
+        Route::patch('users/{user}', [AdminUserController::class, 'update'])->name('users.update');
+        Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+
+        Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
+        Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
+        Route::patch('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+        Route::delete('roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
+
+        Route::get('heis', [HeiController::class, 'index'])->name('heis.index');
+        Route::post('heis', [HeiController::class, 'store'])->name('heis.store');
+        Route::patch('heis/{hei}', [HeiController::class, 'update'])->name('heis.update');
+        Route::delete('heis/{hei}', [HeiController::class, 'destroy'])->name('heis.destroy');
     });
 });
