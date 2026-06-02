@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -45,6 +46,8 @@ class HandleInertiaRequests extends Middleware
                     ...$user->toArray(),
                     'is_admin' => $user->isAdmin(),
                     'can_manage_tournaments' => $user->hasPermission('tournaments.view'),
+                    'can_browse_tournaments' => $user->hasRole(Role::PLAYER) && ! $user->hasPermission('tournaments.view'),
+                    'can_score' => $user->hasPermission('scoring.view'),
                     'role_names' => $user->roleNames()->all(),
                 ] : null,
             ],

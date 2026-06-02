@@ -1,5 +1,5 @@
 export type User = {
-    id: number;
+    id: string;
     name: string;
     email: string;
     avatar?: string;
@@ -7,6 +7,8 @@ export type User = {
     two_factor_enabled?: boolean;
     is_admin?: boolean;
     can_manage_tournaments?: boolean;
+    can_browse_tournaments?: boolean;
+    can_score?: boolean;
     role_names?: string[];
     created_at: string;
     updated_at: string;
@@ -19,7 +21,7 @@ export type Auth = {
 
 /* @chisel-passkeys */
 export type Passkey = {
-    id: number;
+    id: string;
     name: string;
     authenticator: string | null;
     created_at_diff: string;

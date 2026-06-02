@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Teams\CreateTeam;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
@@ -16,6 +17,8 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
+    public function __construct(private CreateTeam $createTeam) {}
+
     /**
      * Display a listing of users.
      */
@@ -71,6 +74,7 @@ class UserController extends Controller
                 'email_verified_at' => now(),
             ]);
 
+            $this->createTeam->handle($user, $user->name."'s Team", isPersonal: true);
             $user->syncRoles($request->validated('roles', []));
         });
 

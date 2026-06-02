@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\Tournaments;
 
+use App\Http\Requests\Admin\Tournaments\Concerns\TournamentRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -22,12 +23,6 @@ class StoreTournamentRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
-            'name' => ['required', 'string', 'max:255'],
-            'organizer_name' => ['nullable', 'string', 'max:255'],
-            'venue' => ['nullable', 'string', 'max:255'],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
-        ];
+        return TournamentRules::all();
     }
 }

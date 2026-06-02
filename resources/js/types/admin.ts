@@ -4,7 +4,7 @@ export type RoleSummary = {
 };
 
 export type AdminUser = {
-    id: number;
+    id: string;
     name: string;
     email: string;
     email_verified_at: string | null;
@@ -30,7 +30,7 @@ export type PermissionGroup = {
 };
 
 export type AdminRole = {
-    id: number;
+    id: string;
     name: string;
     label: string;
     description: string | null;

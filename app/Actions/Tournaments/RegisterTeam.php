@@ -2,6 +2,7 @@
 
 namespace App\Actions\Tournaments;
 
+use App\Actions\Teams\CreateTeam;
 use App\Enums\TournamentStatus;
 use App\Models\Role;
 use App\Models\Tournament;
@@ -16,19 +17,24 @@ use Illuminate\Validation\ValidationException;
 
 class RegisterTeam
 {
-    public function __construct(protected AuthManager $auth) {}
+    public function __construct(
+        protected AuthManager $auth,
+        private CreateTeam $createTeam,
+    ) {}
 
     /**
      * Register a new team from the public registration page.
      *
      * @param  array{
-     *     category_id: int,
-     *     hei_id?: int|null,
+     *     category_id: string,
+     *     hei_id?: string|null,
+     *     registration_mode: string,
      *     captain_name: string,
      *     captain_email: string,
      *     captain_phone?: string|null,
      *     captain_password?: string|null,
-     *     partner_name: string,
+     *     partner_name?: string|null,
+     *     partner_email?: string|null,
      * }  $payload
      */
     public function handle(Tournament $tournament, array $payload, ?User $authenticatedUser = null): TournamentTeam
@@ -43,12 +49,21 @@ class RegisterTeam
             $captain = $authenticatedUser
                 ?? $this->resolveCaptain($payload);
 
+            $isPair = ($payload['registration_mode'] ?? 'pair') === 'pair';
+            $partnerName = $isPair ? trim($payload['partner_name'] ?? 'Partner') : null;
+
             $team = TournamentTeam::create([
                 'tournament_category_id' => $category->id,
                 'hei_id' => $payload['hei_id'] ?? null,
-                'display_name' => trim($payload['captain_name']).' & '.trim($payload['partner_name']),
-                'captain_email' => $payload['captain_email'],
+                'display_name' => $isPair
+                    ? $captain->name.' & '.$partnerName
+                    : $captain->name.' & TBD',
+                'captain_email' => $captain->email,
                 'captain_phone' => $payload['captain_phone'] ?? null,
+                'partner_email' => $payload['partner_email'] ?? null,
+                // Always generate a token so the partner can claim their slot
+                // later, regardless of whether they were filled in upfront.
+                'partner_token' => (string) Str::ulid(),
                 'status' => TournamentTeam::STATUS_ACTIVE,
             ]);
 
@@ -58,11 +73,13 @@ class RegisterTeam
                 'is_captain' => true,
             ]);
 
-            $team->players()->create([
-                'user_id' => null,
-                'display_name' => trim($payload['partner_name']),
-                'is_captain' => false,
-            ]);
+            if ($isPair) {
+                $team->players()->create([
+                    'user_id' => null,
+                    'display_name' => $partnerName,
+                    'is_captain' => false,
+                ]);
+            }
 
             if (! $authenticatedUser) {
                 $this->auth->guard()->login($captain);
@@ -79,9 +96,17 @@ class RegisterTeam
                 'tournament' => __('Registration is not currently open for this tournament.'),
             ]);
         }
+
+        if ($tournament->registration_deadline !== null && $tournament->registration_deadline->isPast()) {
+            throw ValidationException::withMessages([
+                'tournament' => __('Registration closed on :date.', [
+                    'date' => $tournament->registration_deadline->format('M j, Y g:i A'),
+                ]),
+            ]);
+        }
     }
 
-    protected function resolveCategory(Tournament $tournament, int $categoryId): TournamentCategory
+    protected function resolveCategory(Tournament $tournament, string $categoryId): TournamentCategory
     {
         $category = $tournament->categories()->whereKey($categoryId)->first();
 
@@ -119,17 +144,36 @@ class RegisterTeam
         $existing = User::query()->where('email', $payload['captain_email'])->first();
 
         if ($existing) {
+            // Existing account: prompt for the password and authenticate inline.
+            if (empty($payload['captain_password'])) {
+                throw ValidationException::withMessages([
+                    'needs_signin' => 'true',
+                ]);
+            }
+
+            if (! Hash::check($payload['captain_password'], $existing->password)) {
+                throw ValidationException::withMessages([
+                    'captain_password' => __('That password is incorrect. Try again or reset it.'),
+                ]);
+            }
+
+            return $existing;
+        }
+
+        // New email: prompt to create a password, then create the account.
+        if (empty($payload['captain_password'])) {
             throw ValidationException::withMessages([
-                'captain_email' => __('An account already exists with this email. Please sign in first and try again.'),
+                'needs_password' => 'true',
             ]);
         }
 
         $user = User::create([
             'name' => trim($payload['captain_name']),
             'email' => $payload['captain_email'],
-            'password' => Hash::make($payload['captain_password'] ?? Str::random(40)),
+            'password' => Hash::make($payload['captain_password']),
         ]);
 
+        $this->createTeam->handle($user, $user->name."'s Team", isPersonal: true);
         $user->assignRole(Role::PLAYER);
 
         return $user;

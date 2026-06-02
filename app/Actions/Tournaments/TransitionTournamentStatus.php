@@ -9,8 +9,7 @@ use RuntimeException;
 class TransitionTournamentStatus
 {
     /**
-     * Move a tournament to a new status, enforcing forward-only progression
-     * and per-step guards.
+     * Move a tournament to a new status while enforcing phase guards.
      */
     public function handle(Tournament $tournament, TournamentStatus $next): Tournament
     {
@@ -20,15 +19,7 @@ class TransitionTournamentStatus
             return $tournament;
         }
 
-        if ($next->order() < $current->order()) {
-            throw new RuntimeException(__('Tournament status cannot be moved backward.'));
-        }
-
-        if ($next->order() !== $current->order() + 1) {
-            throw new RuntimeException(__('Tournament status must progress one step at a time.'));
-        }
-
-        $this->ensureGuardsPass($tournament, $current, $next);
+        $this->ensureGuardsPass($tournament, $next);
 
         $tournament->update(['status' => $next]);
 
@@ -38,11 +29,11 @@ class TransitionTournamentStatus
     /**
      * Throw if the requested transition is not allowed given current state.
      */
-    protected function ensureGuardsPass(Tournament $tournament, TournamentStatus $from, TournamentStatus $to): void
+    protected function ensureGuardsPass(Tournament $tournament, TournamentStatus $to): void
     {
-        if ($from === TournamentStatus::Draft && $to === TournamentStatus::RegistrationOpen) {
+        if ($to->order() >= TournamentStatus::RegistrationOpen->order()) {
             if ($tournament->categories()->count() === 0) {
-                throw new RuntimeException(__('At least one category is required before opening registration.'));
+                throw new RuntimeException(__('At least one category is required before opening registration or starting the tournament.'));
             }
         }
 

@@ -33,6 +33,7 @@ class RoleSeeder extends Seeder
                     'heis.view', 'heis.create', 'heis.edit', 'heis.delete',
                     'tournaments.view', 'tournaments.create', 'tournaments.edit', 'tournaments.delete', 'tournaments.manage',
                     'categories.create', 'categories.edit', 'categories.delete',
+                    'scoring.view', 'scoring.manage',
                     'dashboard.view',
                 ],
             ],
@@ -44,6 +45,7 @@ class RoleSeeder extends Seeder
                 'permissions' => [
                     'tournaments.view', 'tournaments.create', 'tournaments.edit', 'tournaments.delete', 'tournaments.manage',
                     'categories.create', 'categories.edit', 'categories.delete',
+                    'scoring.view', 'scoring.manage',
                     'dashboard.view',
                 ],
             ],

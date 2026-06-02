@@ -6,6 +6,7 @@ use App\Actions\Tournaments\CreateTournament;
 use App\Actions\Tournaments\TransitionTournamentStatus;
 use App\Enums\CategoryDivision;
 use App\Enums\SkillLevel;
+use App\Enums\TournamentCategoryFormat;
 use App\Enums\TournamentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Tournaments\StoreTournamentRequest;
@@ -13,6 +14,7 @@ use App\Http\Requests\Admin\Tournaments\UpdateTournamentRequest;
 use App\Models\Role;
 use App\Models\Tournament;
 use App\Models\TournamentCategory;
+use App\Models\TournamentTeam;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -60,15 +62,15 @@ class TournamentController extends Controller
     {
         Gate::authorize('view', $tournament);
 
-        $tournament->load(['creator:id,name', 'categories']);
+        $tournament->load([
+            'creator:id,name',
+            'categories',
+            'categories.teams' => fn ($q) => $q->where('status', TournamentTeam::STATUS_ACTIVE)->with(['players', 'hei']),
+        ]);
 
         return Inertia::render('tournaments/show', [
             'tournament' => [
                 ...$this->summarize($tournament),
-                'venue' => $tournament->venue,
-                'organizer_name' => $tournament->organizer_name,
-                'starts_at' => $tournament->starts_at?->toDateString(),
-                'ends_at' => $tournament->ends_at?->toDateString(),
                 'registration_code' => $tournament->registration_code,
                 'categories' => $tournament->categories->map(fn (TournamentCategory $c) => [
                     'id' => $c->id,
@@ -78,16 +80,32 @@ class TournamentController extends Controller
                     'division_label' => $c->division->label(),
                     'skill_level' => $c->skill_level->value,
                     'skill_level_label' => $c->skill_level->label(),
+                    'format' => $c->format->value,
+                    'format_label' => $c->format->label(),
                     'rr_points_to_win' => $c->rr_points_to_win,
                     'elim_points_to_win' => $c->elim_points_to_win,
                     'bracket_size' => $c->bracket_size,
                     'teams_advancing_per_bracket' => $c->teams_advancing_per_bracket,
                     'max_teams' => $c->max_teams,
                     'registration_fee' => $c->registration_fee !== null ? (float) $c->registration_fee : null,
+                    'registered_teams_count' => $c->teams->count(),
+                    'teams' => $c->teams->map(fn (TournamentTeam $t) => [
+                        'id' => $t->id,
+                        'display_name' => $t->display_name,
+                        'hei_name' => $t->hei?->name,
+                        'hei_abbreviation' => $t->hei?->abbreviation,
+                        'captain_phone' => $t->captain_phone,
+                        'players' => $t->players->map(fn ($p) => [
+                            'display_name' => $p->display_name,
+                            'is_captain' => $p->is_captain,
+                        ])->values(),
+                    ])->values(),
                 ]),
             ],
             'divisionOptions' => CategoryDivision::options(),
             'skillLevelOptions' => SkillLevel::options(),
+            'formatOptions' => TournamentCategoryFormat::options(),
+            'statusOptions' => TournamentStatus::options(),
             'permissions' => [
                 ...$this->permissionsPayload($request),
                 'canCreateCategory' => $request->user()->hasPermission('categories.create'),
@@ -120,7 +138,7 @@ class TournamentController extends Controller
     }
 
     /**
-     * Advance the tournament status one step forward via the guarded action.
+     * Update the tournament status via the guarded action.
      */
     public function advanceStatus(Request $request, Tournament $tournament, TransitionTournamentStatus $transition): RedirectResponse
     {
@@ -154,6 +172,15 @@ class TournamentController extends Controller
             'status_label' => $tournament->status->label(),
             'categories_count' => $tournament->categories_count ?? $tournament->categories()->count(),
             'creator' => $tournament->creator?->name,
+            'organizer_name' => $tournament->organizer_name,
+            'venue' => $tournament->venue,
+            'venue_lat' => $tournament->venue_lat !== null ? (float) $tournament->venue_lat : null,
+            'venue_lng' => $tournament->venue_lng !== null ? (float) $tournament->venue_lng : null,
+            'description' => $tournament->description,
+            'registration_fee' => $tournament->registration_fee !== null ? (float) $tournament->registration_fee : null,
+            'starts_at' => $tournament->starts_at?->format('Y-m-d\TH:i:s'),
+            'ends_at' => $tournament->ends_at?->format('Y-m-d\TH:i:s'),
+            'registration_deadline' => $tournament->registration_deadline?->format('Y-m-d\TH:i:s'),
         ];
     }
 

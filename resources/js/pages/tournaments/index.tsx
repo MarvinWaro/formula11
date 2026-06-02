@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus, Trash2, Trophy } from 'lucide-react';
 import DeleteTournamentPopover from '@/components/delete-tournament-popover';
 import Heading from '@/components/heading';
 import TournamentFormModal from '@/components/tournament-form-modal';
@@ -47,7 +47,60 @@ export default function TournamentsIndex({ tournaments, permissions }: Props) {
                     )}
                 </div>
 
-                <div className="overflow-hidden rounded-lg border">
+                {/* Mobile: card list */}
+                <div className="grid gap-3 sm:hidden">
+                    {tournaments.map((tournament) => (
+                        <div
+                            key={tournament.id}
+                            data-test="tournament-row"
+                            className="rounded-xl border bg-card p-4 shadow-sm"
+                        >
+                            <div className="mb-3 flex items-start justify-between gap-3">
+                                <Link
+                                    href={show(tournament.slug).url}
+                                    className="flex items-start gap-3"
+                                >
+                                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                                        <Trophy className="h-5 w-5" />
+                                    </span>
+                                    <span>
+                                        <span className="block font-semibold leading-tight">
+                                            {tournament.name}
+                                        </span>
+                                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                                            {tournament.creator ?? 'No creator'}
+                                        </span>
+                                    </span>
+                                </Link>
+                                <Badge
+                                    variant={statusVariant(tournament.status)}
+                                >
+                                    {tournament.status_label}
+                                </Badge>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 border-t pt-3">
+                                <span className="text-xs text-muted-foreground">
+                                    {tournament.categories_count}{' '}
+                                    {tournament.categories_count === 1
+                                        ? 'category'
+                                        : 'categories'}
+                                </span>
+                                <TournamentRowActions
+                                    tournament={tournament}
+                                    permissions={permissions}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                    {tournaments.length === 0 && (
+                        <div className="rounded-xl border bg-card p-6 text-center text-sm text-muted-foreground">
+                            No tournaments yet.
+                        </div>
+                    )}
+                </div>
+
+                {/* Desktop: table */}
+                <div className="hidden overflow-hidden rounded-lg border sm:block">
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50 text-left text-xs font-medium tracking-wider text-muted-foreground uppercase">
                             <tr>
@@ -92,20 +145,10 @@ export default function TournamentsIndex({ tournaments, permissions }: Props) {
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center justify-end gap-1">
-                                            {permissions.canDelete && (
-                                                <DeleteTournamentPopover
-                                                    tournament={tournament}
-                                                >
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        aria-label="Delete tournament"
-                                                        data-test="tournament-delete-button"
-                                                    >
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
-                                                </DeleteTournamentPopover>
-                                            )}
+                                            <TournamentRowActions
+                                                tournament={tournament}
+                                                permissions={permissions}
+                                            />
                                         </div>
                                     </td>
                                 </tr>
@@ -126,6 +169,52 @@ export default function TournamentsIndex({ tournaments, permissions }: Props) {
                 </div>
             </div>
         </>
+    );
+}
+
+function TournamentRowActions({
+    tournament,
+    permissions,
+}: {
+    tournament: TournamentSummary;
+    permissions: TournamentPermissions;
+}) {
+    return (
+        <div className="flex items-center gap-1">
+            <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                aria-label="View tournament"
+            >
+                <Link href={show(tournament.slug).url}>
+                    <Eye className="h-4 w-4" />
+                </Link>
+            </Button>
+            {permissions.canEdit && (
+                <TournamentFormModal mode="edit" tournament={tournament}>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Edit tournament"
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                </TournamentFormModal>
+            )}
+            {permissions.canDelete && (
+                <DeleteTournamentPopover tournament={tournament}>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Delete tournament"
+                        data-test="tournament-delete-button"
+                    >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                </DeleteTournamentPopover>
+            )}
+        </div>
     );
 }
 

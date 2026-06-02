@@ -19,11 +19,11 @@ class Membership extends Pivot
     protected $table = 'team_members';
 
     /**
-     * Indicates if the IDs are auto-incrementing.
+     * Composite key — no single auto-incrementing id column.
      *
      * @var bool
      */
-    public $incrementing = true;
+    public $incrementing = false;
 
     /**
      * Get the team that the membership belongs to.

@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['tournament_team_id', 'user_id', 'display_name', 'is_captain'])]
 class TeamPlayer extends Model
 {
+    use HasUuids;
+
     /**
      * @return BelongsTo<TournamentTeam, $this>
      */

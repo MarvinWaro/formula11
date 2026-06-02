@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Public;
 
 use App\Actions\Tournaments\RegisterTeam;
-use App\Enums\TournamentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Public\RegisterTeamRequest;
 use App\Models\Hei;
@@ -24,10 +23,12 @@ class TournamentRegistrationController extends Controller
     {
         $tournament = Tournament::query()
             ->where('registration_code', $code)
-            ->with(['categories' => fn ($q) => $q->withCount('teams')])
+            ->with(['categories' => fn ($q) => $q->withCount([
+                'teams as active_teams_count' => fn ($teamQuery) => $teamQuery->where('status', TournamentTeam::STATUS_ACTIVE),
+            ])])
             ->firstOrFail();
 
-        $isOpen = $tournament->status === TournamentStatus::RegistrationOpen;
+        $isOpen = $tournament->isRegistrationOpen();
         $user = $request->user();
 
         return Inertia::render('register/show', [
@@ -36,8 +37,10 @@ class TournamentRegistrationController extends Controller
                 'slug' => $tournament->slug,
                 'organizer_name' => $tournament->organizer_name,
                 'venue' => $tournament->venue,
+                'description' => $tournament->description,
                 'starts_at' => $tournament->starts_at?->toDateString(),
                 'ends_at' => $tournament->ends_at?->toDateString(),
+                'registration_deadline' => $tournament->registration_deadline?->toIso8601String(),
                 'status' => $tournament->status->value,
                 'registration_open' => $isOpen,
             ],
@@ -47,12 +50,14 @@ class TournamentRegistrationController extends Controller
                 'name' => $c->name,
                 'division_label' => $c->division->label(),
                 'skill_level_label' => $c->skill_level->label(),
+                'format' => $c->format->value,
+                'format_label' => $c->format->label(),
                 'rr_points_to_win' => $c->rr_points_to_win,
                 'elim_points_to_win' => $c->elim_points_to_win,
                 'registration_fee' => $c->registration_fee !== null ? (float) $c->registration_fee : null,
                 'max_teams' => $c->max_teams,
-                'registered_teams' => $c->teams_count,
-                'is_full' => $c->max_teams !== null && $c->teams_count >= $c->max_teams,
+                'registered_teams' => $c->active_teams_count,
+                'is_full' => $c->max_teams !== null && $c->active_teams_count >= $c->max_teams,
             ]),
             'heis' => Hei::query()
                 ->orderBy('name')
@@ -114,6 +119,7 @@ class TournamentRegistrationController extends Controller
                 'category_name' => $team->category->name,
                 'category_division' => $team->category->division->label(),
                 'hei_name' => $team->hei?->name,
+                'partner_token' => $team->partner_token,
                 'players' => $team->players->map(fn ($p) => [
                     'display_name' => $p->display_name,
                     'is_captain' => $p->is_captain,

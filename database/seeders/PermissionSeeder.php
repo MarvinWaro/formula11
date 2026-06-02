@@ -61,6 +61,10 @@ class PermissionSeeder extends Seeder
             ['name' => 'categories.edit', 'label' => 'Edit Category', 'group' => 'Tournaments', 'description' => 'Update category rules.'],
             ['name' => 'categories.delete', 'label' => 'Delete Category', 'group' => 'Tournaments', 'description' => 'Remove a category from a tournament.'],
 
+            // Scoring (pools, matches)
+            ['name' => 'scoring.view', 'label' => 'View Scoring', 'group' => 'Scoring', 'description' => 'See pools, matches, and standings for a tournament category.'],
+            ['name' => 'scoring.manage', 'label' => 'Manage Scoring', 'group' => 'Scoring', 'description' => 'Create pools, assign teams, generate matches, and record scores.'],
+
             // Dashboard / general
             ['name' => 'dashboard.view', 'label' => 'View Dashboard', 'group' => 'General', 'description' => 'Access the main dashboard.'],
         ];

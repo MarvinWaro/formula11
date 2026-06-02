@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,14 +11,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'tournament_category_id',
     'hei_id',
+    'pool_id',
+    'pool_seed',
     'display_name',
     'captain_email',
     'captain_phone',
+    'partner_email',
+    'partner_token',
     'status',
     'seed',
 ])]
 class TournamentTeam extends Model
 {
+    use HasUuids;
+
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_WITHDRAWN = 'withdrawn';
@@ -44,6 +51,14 @@ class TournamentTeam extends Model
     public function players(): HasMany
     {
         return $this->hasMany(TeamPlayer::class);
+    }
+
+    /**
+     * @return BelongsTo<Pool, $this>
+     */
+    public function pool(): BelongsTo
+    {
+        return $this->belongsTo(Pool::class);
     }
 
     /**

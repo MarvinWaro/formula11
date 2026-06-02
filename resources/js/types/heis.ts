@@ -1,5 +1,5 @@
 export type Hei = {
-    id: number;
+    id: string;
     name: string;
     abbreviation: string | null;
     region: string | null;

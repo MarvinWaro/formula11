@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('teams', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('name');
             $table->string('slug')->unique();
             $table->boolean('is_personal')->default(false);
@@ -21,22 +21,21 @@ return new class extends Migration
         });
 
         Schema::create('team_members', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('team_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('team_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('user_id')->constrained()->cascadeOnDelete();
             $table->string('role');
             $table->timestamps();
 
-            $table->unique(['team_id', 'user_id']);
+            $table->primary(['team_id', 'user_id']);
         });
 
         Schema::create('team_invitations', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('code', 64)->unique();
-            $table->foreignId('team_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('team_id')->constrained()->cascadeOnDelete();
             $table->string('email');
             $table->string('role');
-            $table->foreignId('invited_by')->constrained('users')->cascadeOnDelete();
+            $table->foreignUuid('invited_by')->constrained('users')->cascadeOnDelete();
             $table->timestamp('expires_at')->nullable();
             $table->timestamp('accepted_at')->nullable();
             $table->timestamps();

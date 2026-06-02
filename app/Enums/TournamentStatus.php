@@ -25,7 +25,7 @@ enum TournamentStatus: string
     }
 
     /**
-     * Get the ordered hierarchy. Used to enforce forward-only transitions.
+     * Get the ordered hierarchy. Used by guards that depend on tournament phase.
      */
     public function order(): int
     {
@@ -36,5 +36,16 @@ enum TournamentStatus: string
             self::InProgress => 3,
             self::Completed => 4,
         };
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function options(): array
+    {
+        return array_map(
+            fn (self $status) => ['value' => $status->value, 'label' => $status->label()],
+            self::cases(),
+        );
     }
 }

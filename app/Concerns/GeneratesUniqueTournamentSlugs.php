@@ -9,7 +9,7 @@ trait GeneratesUniqueTournamentSlugs
     /**
      * Generate a unique slug for the tournament.
      */
-    protected static function generateUniqueTournamentSlug(string $name, ?int $excludeId = null): string
+    protected static function generateUniqueTournamentSlug(string $name, ?string $excludeId = null): string
     {
         $defaultSlug = Str::slug($name);
 

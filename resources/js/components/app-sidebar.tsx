@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, Trophy } from 'lucide-react';
+import { ClipboardList, LayoutGrid, Trophy } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -14,7 +14,9 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import { index as scoringIndex } from '@/routes/admin/scoring';
 import { index as tournamentsIndex } from '@/routes/admin/tournaments';
+import { index as playerTournamentsIndex } from '@/routes/player/tournaments';
 import type { Auth, NavItem } from '@/types';
 
 export function AppSidebar() {
@@ -24,6 +26,9 @@ export function AppSidebar() {
         : '/';
     const canManageTournaments =
         page.props.auth?.user?.can_manage_tournaments === true;
+    const canBrowseTournaments =
+        page.props.auth?.user?.can_browse_tournaments === true;
+    const canScore = page.props.auth?.user?.can_score === true;
 
     const mainNavItems: NavItem[] = [
         {
@@ -37,6 +42,24 @@ export function AppSidebar() {
                       title: 'Tournaments',
                       href: tournamentsIndex().url,
                       icon: Trophy,
+                  } satisfies NavItem,
+              ]
+            : []),
+        ...(!canManageTournaments && canBrowseTournaments
+            ? [
+                  {
+                      title: 'Tournaments',
+                      href: playerTournamentsIndex().url,
+                      icon: Trophy,
+                  } satisfies NavItem,
+              ]
+            : []),
+        ...(canScore
+            ? [
+                  {
+                      title: 'Scoring',
+                      href: scoringIndex().url,
+                      icon: ClipboardList,
                   } satisfies NavItem,
               ]
             : []),

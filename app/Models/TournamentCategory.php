@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Enums\CategoryDivision;
 use App\Enums\SkillLevel;
+use App\Enums\TournamentCategoryFormat;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,6 +18,7 @@ use Illuminate\Support\Str;
     'slug',
     'division',
     'skill_level',
+    'format',
     'rr_points_to_win',
     'elim_points_to_win',
     'bracket_size',
@@ -26,6 +29,17 @@ use Illuminate\Support\Str;
 ])]
 class TournamentCategory extends Model
 {
+    use HasUuids;
+
+    /**
+     * The model's default attribute values.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'format' => 'round_robin_elimination',
+    ];
+
     /**
      * Auto-fill slug per tournament.
      */
@@ -74,9 +88,25 @@ class TournamentCategory extends Model
     }
 
     /**
+     * @return HasMany<Pool, $this>
+     */
+    public function pools(): HasMany
+    {
+        return $this->hasMany(Pool::class)->orderBy('display_order');
+    }
+
+    /**
+     * @return HasMany<MatchGame, $this>
+     */
+    public function matches(): HasMany
+    {
+        return $this->hasMany(MatchGame::class);
+    }
+
+    /**
      * Generate a unique slug scoped to a tournament.
      */
-    protected static function generateUniqueSlug(int $tournamentId, string $name, ?int $excludeId = null): string
+    protected static function generateUniqueSlug(string $tournamentId, string $name, ?string $excludeId = null): string
     {
         $default = Str::slug($name);
 
@@ -117,6 +147,7 @@ class TournamentCategory extends Model
         return [
             'division' => CategoryDivision::class,
             'skill_level' => SkillLevel::class,
+            'format' => TournamentCategoryFormat::class,
             'registration_fee' => 'decimal:2',
         ];
     }

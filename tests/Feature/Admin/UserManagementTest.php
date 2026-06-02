@@ -58,6 +58,8 @@ test('admins can create a user with roles', function () {
     expect($user)->not->toBeNull();
     expect($user->hasRole(Role::PLAYER))->toBeTrue();
     expect($user->hasRole(Role::UMPIRE))->toBeTrue();
+    expect($user->fresh('currentTeam')->currentTeam)->not->toBeNull();
+    expect($user->fresh('currentTeam')->currentTeam->is_personal)->toBeTrue();
 });
 
 test('user creation requires a unique email', function () {

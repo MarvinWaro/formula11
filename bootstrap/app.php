@@ -19,6 +19,21 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        $middleware->redirectUsersTo(function (Request $request): string {
+            $user = $request->user();
+            $team = $user?->currentTeam ?? $user?->personalTeam();
+
+            if ($team) {
+                return route('dashboard', ['current_team' => $team->slug]);
+            }
+
+            if ($user?->hasPermission('tournaments.view')) {
+                return route('admin.tournaments.index');
+            }
+
+            return route('home');
+        });
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,

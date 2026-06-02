@@ -33,6 +33,26 @@ function makeTournament(): Tournament
     return Tournament::create(['name' => 'Test Cup']);
 }
 
+/**
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function categoryRequestData(array $overrides = []): array
+{
+    return [
+        'name' => "Beginner's Mens",
+        'division' => 'mens',
+        'skill_level' => 'beginner',
+        'format' => 'round_robin_elimination',
+        'rr_points_to_win' => 11,
+        'elim_points_to_win' => 15,
+        'bracket_size' => 4,
+        'teams_advancing_per_bracket' => 1,
+        'max_teams' => null,
+        ...$overrides,
+    ];
+}
+
 test('admins can create a category', function () {
     $tournament = makeTournament();
 
@@ -56,6 +76,37 @@ test('admins can create a category', function () {
     expect($category->slug)->toBe('beginners-mens');
     expect($category->division->value)->toBe('mens');
     expect($category->skill_level->value)->toBe('beginner');
+    expect($category->format->value)->toBe('round_robin_elimination');
+});
+
+test('admins can create categories for each tournament format', function (string $format) {
+    $tournament = makeTournament();
+
+    $response = $this
+        ->actingAs(catAdmin())
+        ->post(route('admin.tournaments.categories.store', $tournament), categoryRequestData([
+            'name' => "Format {$format}",
+            'format' => $format,
+        ]));
+
+    $response->assertRedirect(route('admin.tournaments.show', $tournament));
+    expect($tournament->categories()->latest('id')->first()->format->value)->toBe($format);
+})->with([
+    'round robin' => 'round_robin',
+    'single elimination' => 'single_elimination',
+    'round robin elimination' => 'round_robin_elimination',
+]);
+
+test('category requires valid format', function () {
+    $tournament = makeTournament();
+
+    $response = $this
+        ->actingAs(catAdmin())
+        ->post(route('admin.tournaments.categories.store', $tournament), categoryRequestData([
+            'format' => 'triple_elimination',
+        ]));
+
+    $response->assertSessionHasErrors('format');
 });
 
 test('category requires valid division', function () {
@@ -125,6 +176,32 @@ test('admins can update a category', function () {
     expect($category->skill_level->value)->toBe('novice');
     expect($category->bracket_size)->toBe(6);
     expect($category->slug)->toBe('renamed-mixed');
+});
+
+test('admins can update category format and scoring fields', function () {
+    $tournament = makeTournament();
+    $category = $tournament->categories()->create(categoryRequestData([
+        'name' => 'Original',
+    ]));
+
+    $response = $this
+        ->actingAs(catAdmin())
+        ->patch(route('admin.tournaments.categories.update', [$tournament, $category]), categoryRequestData([
+            'name' => 'Knockout',
+            'format' => 'single_elimination',
+            'rr_points_to_win' => 9,
+            'elim_points_to_win' => 21,
+            'bracket_size' => 8,
+            'teams_advancing_per_bracket' => 2,
+        ]));
+
+    $response->assertRedirect();
+    $category->refresh();
+    expect($category->format->value)->toBe('single_elimination');
+    expect($category->rr_points_to_win)->toBe(9);
+    expect($category->elim_points_to_win)->toBe(21);
+    expect($category->bracket_size)->toBe(8);
+    expect($category->teams_advancing_per_bracket)->toBe(2);
 });
 
 test('admins can delete a category', function () {

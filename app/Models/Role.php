@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 #[Fillable(['name', 'label', 'description', 'is_system'])]
 class Role extends Model
 {
+    use HasUuids;
+
     public const UMPIRE = 'umpire';
 
     public const PLAYER = 'player';
