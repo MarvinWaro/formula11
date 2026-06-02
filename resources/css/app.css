@@ -66,111 +66,103 @@
 :root {
     --radius: 0.75rem;
 
-    /* Formula11 Light Theme */
-    --background: #f8faf6;
-    --foreground: #102016;
+    /* Formula11 — Light (per skills/f11-theme/SKILL.md) */
+    --background: #f8fafc;
+    --foreground: #0f172a;
 
     --card: #ffffff;
-    --card-foreground: #102016;
+    --card-foreground: #0f172a;
 
     --popover: #ffffff;
-    --popover-foreground: #102016;
+    --popover-foreground: #0f172a;
 
-    /* Main brand color: deep court navy/green */
-    --primary: #123226;
-    --primary-foreground: #f7fff6;
+    --primary: #0f5132;
+    --primary-foreground: #f8fafc;
 
-    /* Soft surface color */
-    --secondary: #eaf4ea;
-    --secondary-foreground: #183322;
+    --secondary: #f1f5f9;
+    --secondary-foreground: #0f172a;
 
-    --muted: #eef3ec;
-    --muted-foreground: #647067;
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
 
-    /* Court-lime accent, not too neon */
-    --accent: #dff5a2;
-    --accent-foreground: #17310f;
-
-    --destructive: #dc2626;
-    --destructive-foreground: #ffffff;
-
-    --border: #d9e2d6;
-    --input: #d9e2d6;
-    --ring: #8fcf4f;
-
-    /* Charts / rankings / stats */
-    --chart-1: #123226;
-    --chart-2: #8fcf4f;
-    --chart-3: #3b82f6;
-    --chart-4: #f59e0b;
-    --chart-5: #ef4444;
-
-    /* Sidebar */
-    --sidebar: #ffffff;
-    --sidebar-foreground: #17231d;
-    --sidebar-primary: #123226;
-    --sidebar-primary-foreground: #f7fff6;
-    --sidebar-accent: #eaf4ea;
-    --sidebar-accent-foreground: #183322;
-    --sidebar-border: #d9e2d6;
-    --sidebar-ring: #8fcf4f;
-}
-
-.dark {
-    /* Formula11 Dark Theme */
-    --background: #08120e;
-    --foreground: #ecfdf2;
-
-    --card: #0f1d17;
-    --card-foreground: #ecfdf2;
-
-    --popover: #0f1d17;
-    --popover-foreground: #ecfdf2;
-
-    /* In dark mode, lime becomes the main action color */
-    --primary: #a8e85c;
-    --primary-foreground: #0b140d;
-
-    --secondary: #16251d;
-    --secondary-foreground: #d8f6e2;
-
-    --muted: #132018;
-    --muted-foreground: #9aac9f;
-
-    --accent: #243b2c;
-    --accent-foreground: #dff5a2;
+    --accent: #a7e34e;
+    --accent-foreground: #0b2014;
 
     --destructive: #ef4444;
     --destructive-foreground: #ffffff;
 
-    --border: #22352a;
-    --input: #22352a;
-    --ring: #a8e85c;
+    --border: #e2e8f0;
+    --input: #e2e8f0;
+    --ring: #a7e34e;
 
-    /* Charts / rankings / stats */
-    --chart-1: #a8e85c;
-    --chart-2: #38bdf8;
-    --chart-3: #facc15;
-    --chart-4: #fb7185;
-    --chart-5: #c084fc;
+    --chart-1: #0f5132;
+    --chart-2: #a7e34e;
+    --chart-3: #14b8a6;
+    --chart-4: #f59e0b;
+    --chart-5: #ef4444;
 
-    /* Sidebar */
-    --sidebar: #0d1913;
-    --sidebar-foreground: #ecfdf2;
-    --sidebar-primary: #a8e85c;
-    --sidebar-primary-foreground: #0b140d;
-    --sidebar-accent: #16251d;
-    --sidebar-accent-foreground: #dff5a2;
-    --sidebar-border: #22352a;
-    --sidebar-ring: #a8e85c;
+    --sidebar: #ffffff;
+    --sidebar-foreground: #0f172a;
+    --sidebar-primary: #0f5132;
+    --sidebar-primary-foreground: #f8fafc;
+    --sidebar-accent: #f1f5f9;
+    --sidebar-accent-foreground: #0f172a;
+    --sidebar-border: #e2e8f0;
+    --sidebar-ring: #a7e34e;
+}
+
+.dark {
+    /* Formula11 — Dark (per skills/f11-theme/SKILL.md) */
+    --background: #0b1117;
+    --foreground: #e2e8f0;
+
+    --card: #16202a;
+    --card-foreground: #e2e8f0;
+
+    --popover: #16202a;
+    --popover-foreground: #e2e8f0;
+
+    --primary: #a7e34e;
+    --primary-foreground: #0b1117;
+
+    --secondary: #2a3942;
+    --secondary-foreground: #e2e8f0;
+
+    --muted: #2a3942;
+    --muted-foreground: #94a3b8;
+
+    --accent: #14b8a6;
+    --accent-foreground: #f8fafc;
+
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+
+    --border: #26303a;
+    --input: #26303a;
+    --ring: #a7e34e;
+
+    --chart-1: #a7e34e;
+    --chart-2: #14b8a6;
+    --chart-3: #f59e0b;
+    --chart-4: #38bdf8;
+    --chart-5: #ef4444;
+
+    --sidebar: #121a22;
+    --sidebar-foreground: #e2e8f0;
+    --sidebar-primary: #a7e34e;
+    --sidebar-primary-foreground: #0b1117;
+    --sidebar-accent: #16202a;
+    --sidebar-accent-foreground: #e2e8f0;
+    --sidebar-border: #26303a;
+    --sidebar-ring: #a7e34e;
 }
 
 .logo-f11 {
-    color: #123226;
+    color: #0f5132;
 }
 
 .logo-f11-accent {
-    color: #8fcf4f;
+    color: #a7e34e;
 }
 
 @layer base {

@@ -302,6 +302,107 @@ test('partner can claim a placeholder slot created during pair registration', fu
     expect($partnerPlayer->display_name)->toBe('Real Partner');
 });
 
+test('a player can register in another category of the same skill level (different division)', function () {
+    $tournament = openTournamentWithCategory(); // Beginner Men's
+    $beginnerMens = $tournament->categories->first();
+    $beginnerMixed = $tournament->categories()->create([
+        'name' => 'Beginners Mixed',
+        'division' => 'mixed',
+        'skill_level' => 'beginner',
+        'rr_points_to_win' => 11,
+        'elim_points_to_win' => 15,
+        'bracket_size' => 4,
+        'teams_advancing_per_bracket' => 1,
+    ]);
+
+    $player = User::factory()->create();
+    $player->assignRole(Role::PLAYER);
+
+    $this->actingAs($player)->post(route('public.register.store', $tournament->registration_code), [
+        'category_id' => $beginnerMens->id,
+        'registration_mode' => 'pair',
+        'captain_name' => $player->name,
+        'captain_email' => $player->email,
+        'partner_name' => 'Partner A',
+    ]);
+
+    $response = $this->actingAs($player)->post(route('public.register.store', $tournament->registration_code), [
+        'category_id' => $beginnerMixed->id,
+        'registration_mode' => 'pair',
+        'captain_name' => $player->name,
+        'captain_email' => $player->email,
+        'partner_name' => 'Partner B',
+    ]);
+
+    $response->assertRedirect();
+    expect(TournamentTeam::count())->toBe(2);
+});
+
+test('a player cannot register in a category with a different skill level', function () {
+    $tournament = openTournamentWithCategory(); // Beginner Men's
+    $beginnerMens = $tournament->categories->first();
+    $noviceMens = $tournament->categories()->create([
+        'name' => 'Novice Mens',
+        'division' => 'mens',
+        'skill_level' => 'novice',
+        'rr_points_to_win' => 11,
+        'elim_points_to_win' => 15,
+        'bracket_size' => 4,
+        'teams_advancing_per_bracket' => 1,
+    ]);
+
+    $player = User::factory()->create();
+    $player->assignRole(Role::PLAYER);
+
+    $this->actingAs($player)->post(route('public.register.store', $tournament->registration_code), [
+        'category_id' => $beginnerMens->id,
+        'registration_mode' => 'pair',
+        'captain_name' => $player->name,
+        'captain_email' => $player->email,
+        'partner_name' => 'Partner A',
+    ]);
+
+    expect(TournamentTeam::count())->toBe(1);
+
+    $response = $this->actingAs($player)->post(route('public.register.store', $tournament->registration_code), [
+        'category_id' => $noviceMens->id,
+        'registration_mode' => 'pair',
+        'captain_name' => $player->name,
+        'captain_email' => $player->email,
+        'partner_name' => 'Partner B',
+    ]);
+
+    $response->assertSessionHasErrors('category_id');
+    expect(TournamentTeam::count())->toBe(1);
+});
+
+test('a player cannot register twice in the exact same category', function () {
+    $tournament = openTournamentWithCategory();
+    $category = $tournament->categories->first();
+
+    $player = User::factory()->create();
+    $player->assignRole(Role::PLAYER);
+
+    $this->actingAs($player)->post(route('public.register.store', $tournament->registration_code), [
+        'category_id' => $category->id,
+        'registration_mode' => 'pair',
+        'captain_name' => $player->name,
+        'captain_email' => $player->email,
+        'partner_name' => 'Partner A',
+    ]);
+
+    $response = $this->actingAs($player)->post(route('public.register.store', $tournament->registration_code), [
+        'category_id' => $category->id,
+        'registration_mode' => 'pair',
+        'captain_name' => $player->name,
+        'captain_email' => $player->email,
+        'partner_name' => 'Partner B',
+    ]);
+
+    $response->assertSessionHasErrors('category_id');
+    expect(TournamentTeam::count())->toBe(1);
+});
+
 test('an unknown registration code returns 404', function () {
     $response = $this->get('/register/ZZZ999XYZ123');
 

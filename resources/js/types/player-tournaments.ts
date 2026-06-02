@@ -2,6 +2,7 @@ export type PlayerTournamentCategory = {
     id: string;
     name: string;
     division_label: string;
+    skill_level: string;
     skill_level_label: string;
     format: string;
     format_label: string;
@@ -19,6 +20,10 @@ export type PlayerTournamentSummary = {
     slug: string;
     organizer_name: string | null;
     venue: string | null;
+    venue_lat: number | null;
+    venue_lng: number | null;
+    description: string | null;
+    registration_fee: number | null;
     starts_at: string | null;
     ends_at: string | null;
     registration_deadline: string | null;
@@ -43,6 +48,9 @@ export type PlayerTournamentIndexProps = {
 };
 
 export type PlayerExistingTeam = {
+    id: string;
+    category_id: string;
+    category_skill_level: string;
     display_name: string;
     category_name: string;
     hei_name: string | null;
@@ -58,5 +66,5 @@ export type PlayerTournamentShowProps = {
     tournament: PlayerTournamentSummary;
     heis: PlayerTournamentHei[];
     auth: { user: PlayerTournamentAuthUser };
-    existingTeam: PlayerExistingTeam | null;
+    existingTeams: PlayerExistingTeam[];
 };

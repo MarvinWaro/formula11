@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Player;
 
+use App\Actions\Tournaments\JoinTeamAsPartner;
 use App\Actions\Tournaments\RegisterTeam;
 use App\Enums\TournamentStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Player\AcceptInviteRequest;
 use App\Http\Requests\Player\RegisterTournamentTeamRequest;
 use App\Models\Hei;
 use App\Models\Role;
@@ -38,6 +40,10 @@ class TournamentController extends Controller
                 'slug' => $tournament->slug,
                 'organizer_name' => $tournament->organizer_name,
                 'venue' => $tournament->venue,
+                'venue_lat' => $tournament->venue_lat !== null ? (float) $tournament->venue_lat : null,
+                'venue_lng' => $tournament->venue_lng !== null ? (float) $tournament->venue_lng : null,
+                'description' => $tournament->description,
+                'registration_fee' => $tournament->registration_fee !== null ? (float) $tournament->registration_fee : null,
                 'starts_at' => $tournament->starts_at?->toDateString(),
                 'ends_at' => $tournament->ends_at?->toDateString(),
                 'registration_deadline' => $tournament->registration_deadline?->toIso8601String(),
@@ -58,12 +64,12 @@ class TournamentController extends Controller
             'teams as active_teams_count' => fn ($teamQuery) => $teamQuery->where('status', TournamentTeam::STATUS_ACTIVE),
         ])]);
 
-        $existingTeam = TournamentTeam::query()
+        $existingTeams = TournamentTeam::query()
             ->whereHas('category', fn ($q) => $q->where('tournament_id', $tournament->id))
             ->whereHas('players', fn ($q) => $q->where('user_id', $request->user()->id))
             ->where('status', TournamentTeam::STATUS_ACTIVE)
             ->with(['players', 'category', 'hei'])
-            ->first();
+            ->get();
 
         return Inertia::render('player/tournaments/show', [
             'tournament' => [
@@ -72,6 +78,10 @@ class TournamentController extends Controller
                 'slug' => $tournament->slug,
                 'organizer_name' => $tournament->organizer_name,
                 'venue' => $tournament->venue,
+                'venue_lat' => $tournament->venue_lat !== null ? (float) $tournament->venue_lat : null,
+                'venue_lng' => $tournament->venue_lng !== null ? (float) $tournament->venue_lng : null,
+                'description' => $tournament->description,
+                'registration_fee' => $tournament->registration_fee !== null ? (float) $tournament->registration_fee : null,
                 'starts_at' => $tournament->starts_at?->toDateString(),
                 'ends_at' => $tournament->ends_at?->toDateString(),
                 'registration_deadline' => $tournament->registration_deadline?->toIso8601String(),
@@ -86,24 +96,20 @@ class TournamentController extends Controller
                     'name' => $hei->name,
                     'abbreviation' => $hei->abbreviation,
                 ]),
-            'auth' => [
-                'user' => [
-                    'id' => $request->user()->id,
-                    'name' => $request->user()->name,
-                    'email' => $request->user()->email,
-                ],
-            ],
-            'existingTeam' => $existingTeam ? [
-                'display_name' => $existingTeam->display_name,
-                'category_name' => $existingTeam->category->name,
-                'hei_name' => $existingTeam->hei?->name,
-                'partner_token' => $existingTeam->partner_token,
-                'players' => $existingTeam->players->map(fn ($p) => [
+            'existingTeams' => $existingTeams->map(fn (TournamentTeam $t) => [
+                'id' => $t->id,
+                'category_id' => $t->tournament_category_id,
+                'category_skill_level' => $t->category->skill_level->value,
+                'display_name' => $t->display_name,
+                'category_name' => $t->category->name,
+                'hei_name' => $t->hei?->name,
+                'partner_token' => $t->partner_token,
+                'players' => $t->players->map(fn ($p) => [
                     'display_name' => $p->display_name,
                     'is_captain' => $p->is_captain,
                     'is_placeholder' => $p->user_id === null && ! $p->is_captain,
                 ])->values(),
-            ] : null,
+            ])->values(),
         ]);
     }
 
@@ -126,6 +132,20 @@ class TournamentController extends Controller
         ]);
     }
 
+    public function acceptInvite(
+        AcceptInviteRequest $request,
+        Tournament $tournament,
+        JoinTeamAsPartner $join,
+    ): RedirectResponse {
+        abort_unless($tournament->status === TournamentStatus::RegistrationOpen, 404);
+
+        $join->handle($tournament, $request->user(), $request->validated('partner_invite'));
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('You have joined the team as Player 2.')]);
+
+        return to_route('player.tournaments.show', ['tournament' => $tournament->slug]);
+    }
+
     protected function authorizePlayer(Request $request): void
     {
         abort_unless($request->user()?->hasRole(Role::PLAYER), 403);
@@ -142,6 +162,7 @@ class TournamentController extends Controller
             'id' => $category->id,
             'name' => $category->name,
             'division_label' => $category->division->label(),
+            'skill_level' => $category->skill_level->value,
             'skill_level_label' => $category->skill_level->label(),
             'format' => $category->format->value,
             'format_label' => $category->format->label(),

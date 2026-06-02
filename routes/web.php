@@ -41,6 +41,7 @@ Route::middleware(['auth', 'verified'])->prefix('player/tournaments')->name('pla
     Route::get('/', [PlayerTournamentController::class, 'index'])->name('index');
     Route::get('{tournament:slug}', [PlayerTournamentController::class, 'show'])->name('show');
     Route::post('{tournament:slug}/register', [PlayerTournamentController::class, 'store'])->name('store');
+    Route::post('{tournament:slug}/accept-invite', [PlayerTournamentController::class, 'acceptInvite'])->name('accept-invite');
 });
 
 Route::middleware(['auth', 'verified'])->prefix('tournaments')->name('admin.tournaments.')->group(function () {

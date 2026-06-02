@@ -49,6 +49,8 @@ class RegisterTeam
             $captain = $authenticatedUser
                 ?? $this->resolveCaptain($payload);
 
+            $this->guardSkillLevelRule($captain, $tournament, $category);
+
             $isPair = ($payload['registration_mode'] ?? 'pair') === 'pair';
             $partnerName = $isPair ? trim($payload['partner_name'] ?? 'Partner') : null;
 
@@ -131,6 +133,42 @@ class RegisterTeam
             throw ValidationException::withMessages([
                 'category_id' => __('This category has reached its team cap.'),
             ]);
+        }
+    }
+
+    /**
+     * Players may register in multiple categories of the same tournament as
+     * long as the skill level matches across all of them (e.g. Beginner's
+     * Men + Beginner's Mixed is fine; Beginner's Men + Novice's Men is not).
+     * Re-registering in the exact same category is still blocked.
+     */
+    protected function guardSkillLevelRule(
+        User $captain,
+        Tournament $tournament,
+        TournamentCategory $newCategory,
+    ): void {
+        $existingTeams = TournamentTeam::query()
+            ->where('status', TournamentTeam::STATUS_ACTIVE)
+            ->whereHas('category', fn ($q) => $q->where('tournament_id', $tournament->id))
+            ->whereHas('players', fn ($q) => $q->where('user_id', $captain->id))
+            ->with('category')
+            ->get();
+
+        foreach ($existingTeams as $existing) {
+            if ($existing->tournament_category_id === $newCategory->id) {
+                throw ValidationException::withMessages([
+                    'category_id' => __('You are already registered in this category.'),
+                ]);
+            }
+
+            if ($existing->category->skill_level !== $newCategory->skill_level) {
+                throw ValidationException::withMessages([
+                    'category_id' => __(
+                        'You can only register in :level categories for this tournament — different skill levels are not allowed.',
+                        ['level' => $existing->category->skill_level->label()],
+                    ),
+                ]);
+            }
         }
     }
 

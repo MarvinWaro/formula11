@@ -24,11 +24,21 @@ export function AppSidebar() {
     const dashboardUrl = page.props.currentTeam
         ? dashboard(page.props.currentTeam.slug)
         : '/';
+    const user = page.props.auth?.user;
+    const roleNames = user?.role_names ?? [];
+    const isPlayer = roleNames.includes('player');
+
+    // Prefer the explicit computed flag; fall back to role-based inference so
+    // a stale prop never wipes the sidebar nav.
     const canManageTournaments =
-        page.props.auth?.user?.can_manage_tournaments === true;
+        user?.can_manage_tournaments === true ||
+        roleNames.includes('admin') ||
+        roleNames.includes('super_admin') ||
+        roleNames.includes('court_owner');
     const canBrowseTournaments =
-        page.props.auth?.user?.can_browse_tournaments === true;
-    const canScore = page.props.auth?.user?.can_score === true;
+        !canManageTournaments &&
+        (user?.can_browse_tournaments === true || isPlayer);
+    const canScore = user?.can_score === true;
 
     const mainNavItems: NavItem[] = [
         {
