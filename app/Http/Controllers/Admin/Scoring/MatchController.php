@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Admin\Scoring;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Scoring\AssignMatchRequest;
+use App\Http\Requests\Admin\Scoring\AssignUmpireRequest;
 use App\Http\Requests\Admin\Scoring\RecordMatchScoreRequest;
 use App\Models\MatchGame;
 use App\Models\Tournament;
 use App\Models\TournamentCategory;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -56,6 +59,48 @@ class MatchController extends Controller
         ]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Score cleared.')]);
+
+        return back();
+    }
+
+    public function assign(
+        AssignMatchRequest $request,
+        Tournament $tournament,
+        TournamentCategory $category,
+        MatchGame $match,
+    ): RedirectResponse {
+        $this->assertMatchBelongs($tournament, $category, $match);
+
+        $courtNumber = $request->validated('court_number');
+        $match->update([
+            'court_number' => $courtNumber !== null && $courtNumber !== '' ? $courtNumber : null,
+        ]);
+
+        return back();
+    }
+
+    public function assignUmpire(
+        AssignUmpireRequest $request,
+        Tournament $tournament,
+        TournamentCategory $category,
+        MatchGame $match,
+    ): RedirectResponse {
+        $this->assertMatchBelongs($tournament, $category, $match);
+
+        $umpireId = $request->validated('assigned_umpire_user_id');
+
+        // Only users with the scoring.score permission can be assigned;
+        // refusing silently keeps the UI's expectations honest.
+        if ($umpireId !== null) {
+            $candidate = User::query()->whereKey($umpireId)->first();
+            if ($candidate === null || ! $candidate->hasPermission('scoring.score')) {
+                return back()->withErrors([
+                    'assigned_umpire_user_id' => __('That user is not authorized to score matches.'),
+                ]);
+            }
+        }
+
+        $match->update(['assigned_umpire_user_id' => $umpireId]);
 
         return back();
     }

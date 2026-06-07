@@ -9,13 +9,20 @@ use App\Models\Role;
 use App\Models\Tournament;
 use App\Models\TournamentCategory;
 use App\Models\TournamentTeam;
+use App\Models\User;
+use App\Services\Scoring\CategoryStandingsBuilder;
+use App\Services\Scoring\StandingsCalculator;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ScoringController extends Controller
 {
+    public function __construct(
+        protected StandingsCalculator $standings,
+        protected CategoryStandingsBuilder $builder,
+    ) {}
+
     public function index(Request $request): Response
     {
         abort_unless($request->user()?->hasPermission('scoring.view'), 403);
@@ -64,8 +71,14 @@ class ScoringController extends Controller
             'pools.teams' => fn ($q) => $q->orderBy('pool_seed'),
             'pools.matches.teamA',
             'pools.matches.teamB',
+            'pools.matches.assignedUmpire',
+            'matches.teamA',
+            'matches.teamB',
+            'matches.assignedUmpire',
             'teams' => fn ($q) => $q->where('status', TournamentTeam::STATUS_ACTIVE),
         ]);
+
+        $poolPlay = $this->poolPlayProgress($category);
 
         $unassignedTeams = $category->teams
             ->filter(fn (TournamentTeam $t) => $t->pool_id === null)
@@ -80,6 +93,7 @@ class ScoringController extends Controller
             'category' => [
                 'id' => $category->id,
                 'name' => $category->name,
+                'slug' => $category->slug,
                 'division_label' => $category->division->label(),
                 'skill_level_label' => $category->skill_level->label(),
                 'format' => $category->format->value,
@@ -89,10 +103,51 @@ class ScoringController extends Controller
             ],
             'pools' => $category->pools->map(fn (Pool $pool) => $this->serializePool($pool)),
             'unassignedTeams' => $unassignedTeams->map(fn (TournamentTeam $t) => $this->serializeTeam($t)),
+            'bracket' => $this->builder->bracket($category->matches),
+            'poolPlay' => $poolPlay,
+            'availableUmpires' => $this->availableUmpires(),
             'permissions' => [
                 'canManage' => $request->user()->hasPermission('scoring.manage'),
             ],
         ]);
+    }
+
+    /**
+     * @return array<int, array{id:string, name:string}>
+     */
+    private function availableUmpires(): array
+    {
+        return User::query()
+            ->whereHas('roles.permissions', fn ($q) => $q->where('name', 'scoring.score'))
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name])
+            ->all();
+    }
+
+    /**
+     * @return array{total:int, finalized:int, complete:bool, has_matches:bool}
+     */
+    private function poolPlayProgress(TournamentCategory $category): array
+    {
+        $total = 0;
+        $finalized = 0;
+
+        foreach ($category->pools as $pool) {
+            foreach ($pool->matches as $match) {
+                $total++;
+                if ($match->played_at !== null) {
+                    $finalized++;
+                }
+            }
+        }
+
+        return [
+            'total' => $total,
+            'finalized' => $finalized,
+            'has_matches' => $total > 0,
+            'complete' => $total > 0 && $finalized === $total,
+        ];
     }
 
     /**
@@ -103,7 +158,7 @@ class ScoringController extends Controller
         $teams = $pool->teams;
         $matches = $pool->matches;
 
-        $standings = $this->computeStandings($teams, $matches);
+        $standings = $this->standings->handle($teams, $matches);
 
         return [
             'id' => $pool->id,
@@ -134,6 +189,11 @@ class ScoringController extends Controller
         return [
             'id' => $match->id,
             'sequence' => $match->sequence,
+            'court_number' => $match->court_number,
+            'assigned_umpire' => $match->assignedUmpire ? [
+                'id' => $match->assignedUmpire->id,
+                'name' => $match->assignedUmpire->name,
+            ] : null,
             'stage' => $match->stage,
             'team_a' => $match->teamA ? [
                 'id' => $match->teamA->id,
@@ -148,71 +208,5 @@ class ScoringController extends Controller
             'winner_team_id' => $match->winner_team_id,
             'played_at' => $match->played_at?->toIso8601String(),
         ];
-    }
-
-    /**
-     * @param  Collection<int, TournamentTeam>  $teams
-     * @param  Collection<int, MatchGame>  $matches
-     * @return array<int, array<string, mixed>>
-     */
-    private function computeStandings($teams, $matches): array
-    {
-        $stats = [];
-
-        foreach ($teams as $team) {
-            $stats[$team->id] = [
-                'team_id' => $team->id,
-                'display_name' => $team->display_name,
-                'wins' => 0,
-                'losses' => 0,
-                'points_for' => 0,
-                'points_against' => 0,
-                'point_diff' => 0,
-                'played' => 0,
-            ];
-        }
-
-        foreach ($matches as $match) {
-            if (! $match->isComplete()) {
-                continue;
-            }
-
-            if (! isset($stats[$match->team_a_id]) || ! isset($stats[$match->team_b_id])) {
-                continue;
-            }
-
-            $stats[$match->team_a_id]['points_for'] += $match->score_a;
-            $stats[$match->team_a_id]['points_against'] += $match->score_b;
-            $stats[$match->team_a_id]['played']++;
-
-            $stats[$match->team_b_id]['points_for'] += $match->score_b;
-            $stats[$match->team_b_id]['points_against'] += $match->score_a;
-            $stats[$match->team_b_id]['played']++;
-
-            if ($match->winner_team_id === $match->team_a_id) {
-                $stats[$match->team_a_id]['wins']++;
-                $stats[$match->team_b_id]['losses']++;
-            } else {
-                $stats[$match->team_b_id]['wins']++;
-                $stats[$match->team_a_id]['losses']++;
-            }
-        }
-
-        foreach ($stats as &$row) {
-            $row['point_diff'] = $row['points_for'] - $row['points_against'];
-        }
-        unset($row);
-
-        usort($stats, function (array $a, array $b) {
-            return [$b['wins'], $b['point_diff'], $b['points_for']]
-                <=> [$a['wins'], $a['point_diff'], $a['points_for']];
-        });
-
-        foreach ($stats as $index => &$row) {
-            $row['rank'] = $index + 1;
-        }
-        unset($row);
-
-        return array_values($stats);
     }
 }

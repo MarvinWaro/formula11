@@ -1,6 +1,51 @@
+export type PlayerStandingsTeam = {
+    id: string;
+    display_name: string;
+    pool_seed: number | null;
+};
+
+export type PlayerStandingsMatch = {
+    id: string;
+    sequence: number;
+    stage: string;
+    team_a: { id: string; display_name: string } | null;
+    team_b: { id: string; display_name: string } | null;
+    score_a: number | null;
+    score_b: number | null;
+    winner_team_id: string | null;
+    played_at: string | null;
+};
+
+export type PlayerStandingsRow = {
+    rank: number;
+    team_id: string;
+    display_name: string;
+    wins: number;
+    losses: number;
+    points_for: number;
+    points_against: number;
+    point_diff: number;
+    played: number;
+};
+
+export type PlayerStandingsPool = {
+    id: string;
+    name: string;
+    teams: PlayerStandingsTeam[];
+    matches: PlayerStandingsMatch[];
+    standings: PlayerStandingsRow[];
+};
+
+export type PlayerStandingsBracket = {
+    semis: PlayerStandingsMatch[];
+    bronze: PlayerStandingsMatch | null;
+    final: PlayerStandingsMatch | null;
+};
+
 export type PlayerTournamentCategory = {
     id: string;
     name: string;
+    slug: string;
     division_label: string;
     skill_level: string;
     skill_level_label: string;
@@ -12,6 +57,8 @@ export type PlayerTournamentCategory = {
     max_teams: number | null;
     registered_teams: number;
     is_full: boolean;
+    pools?: PlayerStandingsPool[];
+    bracket?: PlayerStandingsBracket | null;
 };
 
 export type PlayerTournamentSummary = {
@@ -28,6 +75,8 @@ export type PlayerTournamentSummary = {
     ends_at: string | null;
     registration_deadline: string | null;
     registration_open?: boolean;
+    status?: string;
+    status_label?: string;
     categories: PlayerTournamentCategory[];
 };
 

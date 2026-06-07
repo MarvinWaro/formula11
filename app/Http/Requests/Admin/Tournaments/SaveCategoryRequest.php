@@ -30,6 +30,12 @@ class SaveCategoryRequest extends FormRequest
             $defaults['teams_advancing_per_bracket'] = 1;
         }
 
+        if (! $this->has('win_by_two')) {
+            $defaults['win_by_two'] = true;
+        } else {
+            $defaults['win_by_two'] = $this->boolean('win_by_two');
+        }
+
         if ($defaults !== []) {
             $this->merge($defaults);
         }
@@ -59,6 +65,7 @@ class SaveCategoryRequest extends FormRequest
             'format' => ['required', Rule::enum(TournamentCategoryFormat::class)],
             'rr_points_to_win' => ['required', 'integer', 'min:1', 'max:99'],
             'elim_points_to_win' => ['required', 'integer', 'min:1', 'max:99'],
+            'win_by_two' => ['required', 'boolean'],
             'bracket_size' => ['required', 'integer', 'min:2', 'max:16'],
             'teams_advancing_per_bracket' => ['required', 'integer', 'min:1', 'max:4'],
             'max_teams' => ['nullable', 'integer', 'min:2', 'max:999'],

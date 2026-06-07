@@ -58,7 +58,8 @@ export default function PlayerTournamentsIndex({
                     <div className="rounded-2xl border border-dashed bg-card p-10 text-center">
                         <Trophy className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
                         <p className="text-sm text-muted-foreground">
-                            No tournaments are open for registration right now.
+                            No tournaments are open for registration right now,
+                            and you're not registered in any current tournaments.
                         </p>
                     </div>
                 ) : (
@@ -82,9 +83,14 @@ function TournamentCard({ tournament }: { tournament: PlayerTournamentSummary })
     const deadline = tournament.registration_deadline
         ? new Date(tournament.registration_deadline)
         : null;
+    const isOpen = tournament.registration_open !== false;
     const urgent =
+        isOpen &&
         deadline !== null &&
         deadline.getTime() - Date.now() < 48 * 60 * 60 * 1000;
+    const statusLabel = isOpen
+        ? 'Registration open'
+        : (tournament.status_label ?? 'In progress');
 
     return (
         <Link
@@ -100,7 +106,7 @@ function TournamentCard({ tournament }: { tournament: PlayerTournamentSummary })
                     </span>
                     <div className="min-w-0 flex-1">
                         <div className="mb-1 inline-flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-accent uppercase">
-                            Registration open
+                            {statusLabel}
                         </div>
                         <h2 className="truncate text-base font-bold leading-tight sm:text-lg">
                             {tournament.name}
@@ -146,7 +152,7 @@ function TournamentCard({ tournament }: { tournament: PlayerTournamentSummary })
                             </span>
                         </div>
                     )}
-                    {deadline && (
+                    {deadline && isOpen && (
                         <div
                             className={
                                 urgent

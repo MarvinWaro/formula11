@@ -65,6 +65,7 @@ export type TournamentCategory = {
     format_label: string;
     rr_points_to_win: number;
     elim_points_to_win: number;
+    win_by_two: boolean;
     bracket_size: number;
     teams_advancing_per_bracket: number;
     max_teams: number | null;

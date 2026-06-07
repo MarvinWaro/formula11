@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { ClipboardList, LayoutGrid, Trophy } from 'lucide-react';
+import { ClipboardList, Gavel, LayoutGrid, Timer, Trophy } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -17,6 +17,7 @@ import { dashboard } from '@/routes';
 import { index as scoringIndex } from '@/routes/admin/scoring';
 import { index as tournamentsIndex } from '@/routes/admin/tournaments';
 import { index as playerTournamentsIndex } from '@/routes/player/tournaments';
+import { index as umpireIndex } from '@/routes/umpire';
 import type { Auth, NavItem } from '@/types';
 
 export function AppSidebar() {
@@ -39,6 +40,41 @@ export function AppSidebar() {
         !canManageTournaments &&
         (user?.can_browse_tournaments === true || isPlayer);
     const canScore = user?.can_score === true;
+    const canUmpire =
+        user?.can_umpire_score === true ||
+        roleNames.includes('umpire');
+
+    const tournamentChildren: NavItem[] = [];
+
+    if (canManageTournaments) {
+        tournamentChildren.push({
+            title: 'Overview',
+            href: tournamentsIndex().url,
+            icon: ClipboardList,
+        });
+    } else if (canBrowseTournaments) {
+        tournamentChildren.push({
+            title: 'Overview',
+            href: playerTournamentsIndex().url,
+            icon: ClipboardList,
+        });
+    }
+
+    if (canScore) {
+        tournamentChildren.push({
+            title: 'Scoring',
+            href: scoringIndex().url,
+            icon: Gavel,
+        });
+    }
+
+    if (canUmpire) {
+        tournamentChildren.push({
+            title: 'Umpire',
+            href: umpireIndex().url,
+            icon: Timer,
+        });
+    }
 
     const mainNavItems: NavItem[] = [
         {
@@ -46,33 +82,24 @@ export function AppSidebar() {
             href: dashboardUrl,
             icon: LayoutGrid,
         },
-        ...(canManageTournaments
+        ...(tournamentChildren.length === 1
             ? [
                   {
                       title: 'Tournaments',
-                      href: tournamentsIndex().url,
+                      href: tournamentChildren[0].href,
                       icon: Trophy,
                   } satisfies NavItem,
               ]
-            : []),
-        ...(!canManageTournaments && canBrowseTournaments
-            ? [
-                  {
-                      title: 'Tournaments',
-                      href: playerTournamentsIndex().url,
-                      icon: Trophy,
-                  } satisfies NavItem,
-              ]
-            : []),
-        ...(canScore
-            ? [
-                  {
-                      title: 'Scoring',
-                      href: scoringIndex().url,
-                      icon: ClipboardList,
-                  } satisfies NavItem,
-              ]
-            : []),
+            : tournamentChildren.length > 1
+              ? [
+                    {
+                        title: 'Tournaments',
+                        href: tournamentChildren[0].href,
+                        icon: Trophy,
+                        items: tournamentChildren,
+                    } satisfies NavItem,
+                ]
+              : []),
     ];
 
     return (

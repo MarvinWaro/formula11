@@ -1,10 +1,20 @@
 import { Link } from '@inertiajs/react';
+import { ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
     SidebarGroup,
     SidebarGroupLabel,
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import type { NavItem } from '@/types';
@@ -16,21 +26,80 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
         <SidebarGroup className="px-2 py-0">
             <SidebarGroupLabel>Platform</SidebarGroupLabel>
             <SidebarMenu>
-                {items.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton
-                            asChild
-                            isActive={isCurrentUrl(item.href)}
-                            tooltip={{ children: item.title }}
-                        >
-                            <Link href={item.href} prefetch>
-                                {item.icon && <item.icon />}
-                                <span>{item.title}</span>
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                ))}
+                {items.map((item) =>
+                    item.items && item.items.length > 0 ? (
+                        <NavGroupItem
+                            key={item.title}
+                            item={item}
+                            isCurrentUrl={isCurrentUrl}
+                        />
+                    ) : (
+                        <SidebarMenuItem key={item.title}>
+                            <SidebarMenuButton
+                                asChild
+                                isActive={isCurrentUrl(item.href)}
+                                tooltip={{ children: item.title }}
+                            >
+                                <Link href={item.href} prefetch>
+                                    {item.icon && <item.icon />}
+                                    <span>{item.title}</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    ),
+                )}
             </SidebarMenu>
         </SidebarGroup>
+    );
+}
+
+function NavGroupItem({
+    item,
+    isCurrentUrl,
+}: {
+    item: NavItem;
+    isCurrentUrl: (href: NavItem['href']) => boolean;
+}) {
+    const hasActiveChild =
+        item.items?.some((child) => isCurrentUrl(child.href)) ?? false;
+    const [open, setOpen] = useState<boolean>(hasActiveChild);
+
+    return (
+        <Collapsible
+            asChild
+            open={open}
+            onOpenChange={setOpen}
+            className="group/collapsible"
+        >
+            <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                        tooltip={{ children: item.title }}
+                        isActive={hasActiveChild}
+                    >
+                        {item.icon && <item.icon />}
+                        <span>{item.title}</span>
+                        <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <SidebarMenuSub>
+                        {item.items?.map((child) => (
+                            <SidebarMenuSubItem key={child.title}>
+                                <SidebarMenuSubButton
+                                    asChild
+                                    isActive={isCurrentUrl(child.href)}
+                                >
+                                    <Link href={child.href} prefetch>
+                                        {child.icon && <child.icon />}
+                                        <span>{child.title}</span>
+                                    </Link>
+                                </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                        ))}
+                    </SidebarMenuSub>
+                </CollapsibleContent>
+            </SidebarMenuItem>
+        </Collapsible>
     );
 }

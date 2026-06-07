@@ -14,6 +14,8 @@ export type ScoringMatchSide = {
 export type ScoringMatch = {
     id: string;
     sequence: number;
+    court_number: string | null;
+    assigned_umpire: { id: string; name: string } | null;
     stage: 'pool' | 'semi' | 'bronze' | 'final';
     team_a: ScoringMatchSide | null;
     team_b: ScoringMatchSide | null;
@@ -21,6 +23,11 @@ export type ScoringMatch = {
     score_b: number | null;
     winner_team_id: string | null;
     played_at: string | null;
+};
+
+export type ScoringUmpire = {
+    id: string;
+    name: string;
 };
 
 export type ScoringStanding = {
@@ -46,6 +53,7 @@ export type ScoringPool = {
 export type ScoringCategoryHeader = {
     id: string;
     name: string;
+    slug: string;
     division_label: string;
     skill_level_label: string;
     format: TournamentCategoryFormatValue;
@@ -60,11 +68,39 @@ export type ScoringTournamentHeader = {
     slug: string;
 };
 
+export type ScoringBracketMatch = {
+    id: string;
+    sequence: number;
+    stage: string;
+    team_a: { id: string; display_name: string } | null;
+    team_b: { id: string; display_name: string } | null;
+    score_a: number | null;
+    score_b: number | null;
+    winner_team_id: string | null;
+    played_at: string | null;
+};
+
+export type ScoringBracket = {
+    semis: ScoringBracketMatch[];
+    bronze: ScoringBracketMatch | null;
+    final: ScoringBracketMatch | null;
+} | null;
+
+export type ScoringPoolPlay = {
+    total: number;
+    finalized: number;
+    has_matches: boolean;
+    complete: boolean;
+};
+
 export type ScoringShowProps = {
     tournament: ScoringTournamentHeader;
     category: ScoringCategoryHeader;
     pools: ScoringPool[];
     unassignedTeams: ScoringTeam[];
+    bracket: ScoringBracket;
+    poolPlay: ScoringPoolPlay;
+    availableUmpires: ScoringUmpire[];
     permissions: {
         canManage: boolean;
     };

@@ -84,6 +84,7 @@ class TournamentController extends Controller
                     'format_label' => $c->format->label(),
                     'rr_points_to_win' => $c->rr_points_to_win,
                     'elim_points_to_win' => $c->elim_points_to_win,
+                    'win_by_two' => (bool) $c->win_by_two,
                     'bracket_size' => $c->bracket_size,
                     'teams_advancing_per_bracket' => $c->teams_advancing_per_bracket,
                     'max_teams' => $c->max_teams,

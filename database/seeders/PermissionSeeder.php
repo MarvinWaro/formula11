@@ -64,6 +64,7 @@ class PermissionSeeder extends Seeder
             // Scoring (pools, matches)
             ['name' => 'scoring.view', 'label' => 'View Scoring', 'group' => 'Scoring', 'description' => 'See pools, matches, and standings for a tournament category.'],
             ['name' => 'scoring.manage', 'label' => 'Manage Scoring', 'group' => 'Scoring', 'description' => 'Create pools, assign teams, generate matches, and record scores.'],
+            ['name' => 'scoring.score', 'label' => 'Score Matches', 'group' => 'Scoring', 'description' => 'Record live match scores from the umpire interface.'],
 
             // Dashboard / general
             ['name' => 'dashboard.view', 'label' => 'View Dashboard', 'group' => 'General', 'description' => 'Access the main dashboard.'],

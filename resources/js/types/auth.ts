@@ -9,6 +9,7 @@ export type User = {
     can_manage_tournaments?: boolean;
     can_browse_tournaments?: boolean;
     can_score?: boolean;
+    can_umpire_score?: boolean;
     role_names?: string[];
     created_at: string;
     updated_at: string;

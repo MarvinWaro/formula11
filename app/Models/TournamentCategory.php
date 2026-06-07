@@ -21,6 +21,7 @@ use Illuminate\Support\Str;
     'format',
     'rr_points_to_win',
     'elim_points_to_win',
+    'win_by_two',
     'bracket_size',
     'teams_advancing_per_bracket',
     'max_teams',
@@ -149,6 +150,7 @@ class TournamentCategory extends Model
             'skill_level' => SkillLevel::class,
             'format' => TournamentCategoryFormat::class,
             'registration_fee' => 'decimal:2',
+            'win_by_two' => 'boolean',
         ];
     }
 }

@@ -66,6 +66,7 @@ export default function CategoryFormModal({
     const [format, setFormat] = useState<TournamentCategoryFormatValue>(
         category?.format ?? 'round_robin_elimination',
     );
+    const [winByTwo, setWinByTwo] = useState<boolean>(category?.win_by_two ?? true);
     // In edit mode the existing name is "manual" by default — never overwrite.
     const [name, setName] = useState<string>(category?.name ?? '');
     const [nameTouched, setNameTouched] = useState<boolean>(mode === 'edit');
@@ -109,6 +110,7 @@ export default function CategoryFormModal({
                     setDivision(category?.division ?? 'mens');
                     setSkillLevel(category?.skill_level ?? 'beginner');
                     setFormat(category?.format ?? 'round_robin_elimination');
+                    setWinByTwo(category?.win_by_two ?? true);
                     setName(category?.name ?? '');
                     setNameTouched(mode === 'edit');
                 }
@@ -130,6 +132,7 @@ export default function CategoryFormModal({
                         division,
                         skill_level: skillLevel,
                         format,
+                        win_by_two: winByTwo,
                         rr_points_to_win: usesRoundRobin
                             ? data.rr_points_to_win
                             : (category?.rr_points_to_win ?? 11),
@@ -337,6 +340,29 @@ export default function CategoryFormModal({
                                             )}
                                         </div>
                                     )}
+
+                                    <label className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3">
+                                        <input
+                                            type="checkbox"
+                                            className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                                            checked={winByTwo}
+                                            onChange={(e) =>
+                                                setWinByTwo(e.target.checked)
+                                            }
+                                        />
+                                        <span className="space-y-0.5">
+                                            <span className="block text-sm font-medium">
+                                                Must win by 2 points
+                                            </span>
+                                            <span className="block text-xs text-muted-foreground">
+                                                Standard pickleball rule: a team
+                                                must lead by at least 2 points
+                                                at the target to win. Turn off
+                                                for straight first-to-target
+                                                games.
+                                            </span>
+                                        </span>
+                                    </label>
                                 </FormSection>
 
                                 {/* ─── Capacity & Fee ─── */}

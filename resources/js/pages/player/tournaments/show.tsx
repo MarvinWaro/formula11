@@ -1,6 +1,7 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import {
     AlarmClock,
+    BarChart3,
     Building2,
     Calendar,
     CheckCircle2,
@@ -12,6 +13,9 @@ import {
     Trophy,
     Users,
 } from 'lucide-react';
+import { BracketTree } from '@/components/standings/bracket-tree';
+import { PoolMatrix } from '@/components/standings/pool-matrix';
+import { StandingsTable } from '@/components/standings/standings-table';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PlayerTournamentController from '@/actions/App/Http/Controllers/Player/TournamentController';
 import InputError from '@/components/input-error';
@@ -32,6 +36,7 @@ import { cn } from '@/lib/utils';
 import { index, show } from '@/routes/player/tournaments';
 import type {
     PlayerExistingTeam,
+    PlayerStandingsRow,
     PlayerTournamentCategory,
     PlayerTournamentShowProps,
     PlayerTournamentSummary,
@@ -125,6 +130,12 @@ export default function PlayerTournamentShow({
                     minFee={minFee}
                 />
 
+                {/* ─── Standings & bracket (inline) ─── */}
+                <StandingsAndBracket
+                    categories={tournament.categories}
+                    existingTeams={existingTeams}
+                />
+
                 {/* ─── About + Map row (only when there's something to show) ─── */}
                 {(tournament.description ||
                     (tournament.venue_lat !== null &&
@@ -168,38 +179,54 @@ export default function PlayerTournamentShow({
                     </section>
                 )}
 
-                {/* ─── Accept partner invite ─── */}
-                <AcceptInvitePanel tournamentSlug={tournament.slug} />
-
-                {/* ─── Categories + Form row (if more eligible categories remain) ─── */}
-                {availableCategories.length === 0 ? (
-                    existingTeams.length === 0 && <EmptyState />
+                {/* ─── Registration UI (only when registration is open) ─── */}
+                {tournament.registration_open === false ? (
+                    <RegistrationClosedNotice
+                        statusLabel={tournament.status_label ?? 'Closed'}
+                        hasExistingTeams={existingTeams.length > 0}
+                    />
                 ) : (
-                    <section className="grid gap-4 lg:grid-cols-12">
-                        <div className="lg:col-span-7">
-                            <CategoryPickerSection
-                                categories={tournament.categories}
-                                registeredCategoryIds={registeredCategoryIds}
-                                lockedSkillLevel={lockedSkillLevel}
-                                selectedId={categoryId}
-                                onSelect={setCategoryId}
-                                hasExistingTeams={existingTeams.length > 0}
-                            />
-                        </div>
-                        <div className="lg:col-span-5">
-                            <RegistrationForm
-                                tournament={tournament}
-                                heis={heis}
-                                auth={auth}
-                                categoryId={categoryId}
-                                heiId={heiId}
-                                setHeiId={setHeiId}
-                                mode={mode}
-                                setMode={setMode}
-                                selectedCategory={selectedCategory}
-                            />
-                        </div>
-                    </section>
+                    <>
+                        {/* ─── Accept partner invite ─── */}
+                        <AcceptInvitePanel
+                            tournamentSlug={tournament.slug}
+                        />
+
+                        {/* ─── Categories + Form row (if more eligible categories remain) ─── */}
+                        {availableCategories.length === 0 ? (
+                            existingTeams.length === 0 && <EmptyState />
+                        ) : (
+                            <section className="grid gap-4 lg:grid-cols-12">
+                                <div className="lg:col-span-7">
+                                    <CategoryPickerSection
+                                        categories={tournament.categories}
+                                        registeredCategoryIds={
+                                            registeredCategoryIds
+                                        }
+                                        lockedSkillLevel={lockedSkillLevel}
+                                        selectedId={categoryId}
+                                        onSelect={setCategoryId}
+                                        hasExistingTeams={
+                                            existingTeams.length > 0
+                                        }
+                                    />
+                                </div>
+                                <div className="lg:col-span-5">
+                                    <RegistrationForm
+                                        tournament={tournament}
+                                        heis={heis}
+                                        auth={auth}
+                                        categoryId={categoryId}
+                                        heiId={heiId}
+                                        setHeiId={setHeiId}
+                                        mode={mode}
+                                        setMode={setMode}
+                                        selectedCategory={selectedCategory}
+                                    />
+                                </div>
+                            </section>
+                        )}
+                    </>
                 )}
             </div>
         </>
@@ -381,6 +408,239 @@ function EmptyState() {
             <p className="mt-1 text-xs text-muted-foreground">
                 Every category is full. Check back later or browse other
                 tournaments.
+            </p>
+        </div>
+    );
+}
+
+function StandingsAndBracket({
+    categories,
+    existingTeams,
+}: {
+    categories: PlayerTournamentCategory[];
+    existingTeams: PlayerExistingTeam[];
+}) {
+    // Set of team ids the player is on across all categories, plus a quick
+    // lookup of which categories the player has registered in.
+    const playerTeamIds = useMemo(
+        () => new Set(existingTeams.map((t) => t.id)),
+        [existingTeams],
+    );
+    const registeredCategoryIds = useMemo(
+        () => new Set(existingTeams.map((t) => t.category_id)),
+        [existingTeams],
+    );
+
+    // Only render categories that actually have something to show.
+    const categoriesWithData = useMemo(() => {
+        const filtered = categories.filter((c) => {
+            const hasPools = (c.pools?.length ?? 0) > 0;
+            const hasBracket = c.bracket !== null && c.bracket !== undefined;
+            return hasPools || hasBracket;
+        });
+        // Surface registered categories first.
+        return [...filtered].sort((a, b) => {
+            const aMine = registeredCategoryIds.has(a.id.toString()) ? 0 : 1;
+            const bMine = registeredCategoryIds.has(b.id.toString()) ? 0 : 1;
+            return aMine - bMine;
+        });
+    }, [categories, registeredCategoryIds]);
+
+    if (categoriesWithData.length === 0) {
+        return null;
+    }
+
+    return (
+        <section className="space-y-4">
+            <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                    Standings & bracket
+                </h2>
+            </div>
+
+            {categoriesWithData.map((category) => (
+                <CategoryStandingsPanel
+                    key={category.id}
+                    category={category}
+                    playerTeamIds={playerTeamIds}
+                />
+            ))}
+        </section>
+    );
+}
+
+function CategoryStandingsPanel({
+    category,
+    playerTeamIds,
+}: {
+    category: PlayerTournamentCategory;
+    playerTeamIds: Set<string>;
+}) {
+    const pools = category.pools ?? [];
+    const bracket = category.bracket ?? null;
+    const highlightTeamIds = Array.from(playerTeamIds);
+
+    // Find the player's standings row(s) for this category — there might be
+    // multiple if they're on more than one team in this category.
+    const yourRows = pools.flatMap((pool) =>
+        pool.standings
+            .filter((row) => playerTeamIds.has(row.team_id))
+            .map((row) => ({ pool, row })),
+    );
+
+    return (
+        <article className="space-y-4 rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
+            <header className="min-w-0">
+                <h3 className="text-base font-semibold">{category.name}</h3>
+                <p className="text-xs text-muted-foreground">
+                    {category.division_label} · {category.skill_level_label} ·{' '}
+                    {category.format_label}
+                </p>
+            </header>
+
+            {yourRows.length > 0 && (
+                <div className="space-y-2">
+                    {yourRows.map(({ pool, row }) => (
+                        <YourStandingCard
+                            key={row.team_id}
+                            poolName={pool.name}
+                            row={row}
+                        />
+                    ))}
+                </div>
+            )}
+
+            {pools.length > 0 ? (
+                <div className="space-y-4">
+                    {pools.map((pool) => (
+                        <div key={pool.id} className="space-y-2">
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                <h4 className="text-sm font-semibold">
+                                    {pool.name}
+                                </h4>
+                                <span className="text-xs text-muted-foreground">
+                                    {pool.teams.length}{' '}
+                                    {pool.teams.length === 1
+                                        ? 'team'
+                                        : 'teams'}{' '}
+                                    · {pool.matches.length}{' '}
+                                    {pool.matches.length === 1
+                                        ? 'match'
+                                        : 'matches'}
+                                </span>
+                            </div>
+                            <div className="grid gap-3 lg:grid-cols-5">
+                                <div className="lg:col-span-3">
+                                    <PoolMatrix
+                                        teams={pool.teams}
+                                        matches={pool.matches}
+                                    />
+                                </div>
+                                <div className="lg:col-span-2">
+                                    <StandingsTable
+                                        rows={pool.standings}
+                                        highlightTeamIds={highlightTeamIds}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="rounded-xl border border-dashed bg-card/50 p-4 text-center text-xs text-muted-foreground">
+                    Pools haven't been drawn yet for this category.
+                </div>
+            )}
+
+            {bracket ? (
+                <div className="space-y-2">
+                    <h4 className="text-sm font-semibold">Playoff bracket</h4>
+                    <BracketTree
+                        semis={bracket.semis}
+                        bronze={bracket.bronze}
+                        final={bracket.final}
+                    />
+                </div>
+            ) : (
+                <p className="text-xs text-muted-foreground">
+                    Bracket appears once semifinals are seeded.
+                </p>
+            )}
+        </article>
+    );
+}
+
+function YourStandingCard({
+    poolName,
+    row,
+}: {
+    poolName: string;
+    row: PlayerStandingsRow;
+}) {
+    const pdLabel = row.point_diff > 0 ? `+${row.point_diff}` : row.point_diff;
+
+    return (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-3 sm:p-4">
+            <div className="flex items-baseline gap-1">
+                <span className="text-[10px] font-bold tracking-wider text-amber-700 uppercase dark:text-amber-300">
+                    Your standing
+                </span>
+            </div>
+            <div className="flex flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
+                <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-bold tabular-nums">
+                        #{row.rank}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                        in {poolName}
+                    </span>
+                </div>
+                <span className="truncate text-sm font-medium">
+                    {row.display_name}
+                </span>
+                <div className="flex items-baseline gap-3 text-xs">
+                    <span>
+                        <span className="font-semibold tabular-nums">
+                            {row.wins}–{row.losses}
+                        </span>{' '}
+                        <span className="text-muted-foreground">W–L</span>
+                    </span>
+                    <span>
+                        <span className="font-semibold tabular-nums">
+                            {pdLabel}
+                        </span>{' '}
+                        <span className="text-muted-foreground">PD</span>
+                    </span>
+                    <span>
+                        <span className="font-semibold tabular-nums">
+                            {row.played}
+                        </span>{' '}
+                        <span className="text-muted-foreground">played</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function RegistrationClosedNotice({
+    statusLabel,
+    hasExistingTeams,
+}: {
+    statusLabel: string;
+    hasExistingTeams: boolean;
+}) {
+    return (
+        <div className="rounded-2xl border border-dashed bg-card p-6 text-center sm:p-8">
+            <AlarmClock className="mx-auto mb-2 h-7 w-7 text-muted-foreground" />
+            <p className="text-sm font-medium">
+                Registration is closed ({statusLabel})
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+                {hasExistingTeams
+                    ? 'New teams can no longer be added, but your team is locked in. Track standings and the bracket above.'
+                    : 'New teams can no longer be added for this tournament.'}
             </p>
         </div>
     );

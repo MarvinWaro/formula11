@@ -13,6 +13,7 @@ use App\Models\Role;
 use App\Models\Tournament;
 use App\Models\TournamentCategory;
 use App\Models\TournamentTeam;
+use App\Services\Scoring\CategoryStandingsBuilder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,15 +21,30 @@ use Inertia\Response;
 
 class TournamentController extends Controller
 {
+    public function __construct(protected CategoryStandingsBuilder $standingsBuilder) {}
+
     public function index(Request $request): Response
     {
         $this->authorizePlayer($request);
 
+        $userId = $request->user()->id;
+
         $tournaments = Tournament::query()
-            ->where('status', TournamentStatus::RegistrationOpen->value)
-            ->where(fn ($q) => $q
-                ->whereNull('registration_deadline')
-                ->orWhere('registration_deadline', '>', now()))
+            ->where(function ($q) use ($userId) {
+                // Either still accepting registrations…
+                $q->where(function ($open) {
+                    $open->where('status', TournamentStatus::RegistrationOpen->value)
+                        ->where(fn ($deadline) => $deadline
+                            ->whereNull('registration_deadline')
+                            ->orWhere('registration_deadline', '>', now()));
+                })
+                    // …or the player already has an active team in it,
+                    // regardless of status (in-progress, completed, etc).
+                    ->orWhereHas('categories.teams', function ($team) use ($userId) {
+                        $team->where('status', TournamentTeam::STATUS_ACTIVE)
+                            ->whereHas('players', fn ($p) => $p->where('user_id', $userId));
+                    });
+            })
             ->with(['categories' => fn ($query) => $query->withCount([
                 'teams as active_teams_count' => fn ($teamQuery) => $teamQuery->where('status', TournamentTeam::STATUS_ACTIVE),
             ])])
@@ -47,6 +63,9 @@ class TournamentController extends Controller
                 'starts_at' => $tournament->starts_at?->toDateString(),
                 'ends_at' => $tournament->ends_at?->toDateString(),
                 'registration_deadline' => $tournament->registration_deadline?->toIso8601String(),
+                'status' => $tournament->status->value,
+                'status_label' => $tournament->status->label(),
+                'registration_open' => $tournament->isRegistrationOpen(),
                 'categories' => $tournament->categories->map(fn (TournamentCategory $category) => $this->categoryPayload($category))->values(),
             ]);
 
@@ -58,11 +77,17 @@ class TournamentController extends Controller
     public function show(Request $request, Tournament $tournament): Response
     {
         $this->authorizePlayer($request);
-        abort_unless($tournament->status === TournamentStatus::RegistrationOpen, 404);
 
-        $tournament->load(['categories' => fn ($query) => $query->withCount([
-            'teams as active_teams_count' => fn ($teamQuery) => $teamQuery->where('status', TournamentTeam::STATUS_ACTIVE),
-        ])]);
+        $tournament->load([
+            'categories' => fn ($query) => $query->withCount([
+                'teams as active_teams_count' => fn ($teamQuery) => $teamQuery->where('status', TournamentTeam::STATUS_ACTIVE),
+            ]),
+            'categories.pools.teams' => fn ($q) => $q->orderBy('pool_seed'),
+            'categories.pools.matches.teamA',
+            'categories.pools.matches.teamB',
+            'categories.matches.teamA',
+            'categories.matches.teamB',
+        ]);
 
         $existingTeams = TournamentTeam::query()
             ->whereHas('category', fn ($q) => $q->where('tournament_id', $tournament->id))
@@ -70,6 +95,13 @@ class TournamentController extends Controller
             ->where('status', TournamentTeam::STATUS_ACTIVE)
             ->with(['players', 'category', 'hei'])
             ->get();
+
+        // Player may view a tournament if registration is still open OR they
+        // already have an active team in it — once a tournament moves to
+        // in-progress / completed, their team page must stay reachable so
+        // they can follow standings, find their partner, etc.
+        $registrationOpen = $tournament->isRegistrationOpen();
+        abort_unless($registrationOpen || $existingTeams->isNotEmpty(), 404);
 
         return Inertia::render('player/tournaments/show', [
             'tournament' => [
@@ -85,8 +117,13 @@ class TournamentController extends Controller
                 'starts_at' => $tournament->starts_at?->toDateString(),
                 'ends_at' => $tournament->ends_at?->toDateString(),
                 'registration_deadline' => $tournament->registration_deadline?->toIso8601String(),
-                'registration_open' => $tournament->isRegistrationOpen(),
-                'categories' => $tournament->categories->map(fn (TournamentCategory $category) => $this->categoryPayload($category))->values(),
+                'registration_open' => $registrationOpen,
+                'status' => $tournament->status->value,
+                'status_label' => $tournament->status->label(),
+                'categories' => $tournament->categories->map(fn (TournamentCategory $category) => [
+                    ...$this->categoryPayload($category),
+                    ...$this->standingsBuilder->build($category),
+                ])->values(),
             ],
             'heis' => Hei::query()
                 ->orderBy('name')
@@ -161,6 +198,7 @@ class TournamentController extends Controller
         return [
             'id' => $category->id,
             'name' => $category->name,
+            'slug' => $category->slug,
             'division_label' => $category->division->label(),
             'skill_level' => $category->skill_level->value,
             'skill_level_label' => $category->skill_level->label(),

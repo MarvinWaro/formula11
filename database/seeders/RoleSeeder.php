@@ -33,7 +33,7 @@ class RoleSeeder extends Seeder
                     'heis.view', 'heis.create', 'heis.edit', 'heis.delete',
                     'tournaments.view', 'tournaments.create', 'tournaments.edit', 'tournaments.delete', 'tournaments.manage',
                     'categories.create', 'categories.edit', 'categories.delete',
-                    'scoring.view', 'scoring.manage',
+                    'scoring.view', 'scoring.manage', 'scoring.score',
                     'dashboard.view',
                 ],
             ],
@@ -45,7 +45,7 @@ class RoleSeeder extends Seeder
                 'permissions' => [
                     'tournaments.view', 'tournaments.create', 'tournaments.edit', 'tournaments.delete', 'tournaments.manage',
                     'categories.create', 'categories.edit', 'categories.delete',
-                    'scoring.view', 'scoring.manage',
+                    'scoring.view', 'scoring.manage', 'scoring.score',
                     'dashboard.view',
                 ],
             ],
@@ -54,7 +54,7 @@ class RoleSeeder extends Seeder
                 'label' => 'Umpire',
                 'description' => 'Officiates matches and records scores.',
                 'is_system' => true,
-                'permissions' => ['dashboard.view'],
+                'permissions' => ['dashboard.view', 'scoring.score'],
             ],
             [
                 'name' => Role::PLAYER,

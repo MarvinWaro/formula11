@@ -3,7 +3,9 @@ import {
     BookOpen,
     Check,
     ChevronLeft,
+    Crown,
     Loader2,
+    Medal,
     Pencil,
     Plus,
     RotateCcw,
@@ -17,6 +19,7 @@ import {
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import MatchController from '@/actions/App/Http/Controllers/Admin/Scoring/MatchController';
+import PlayoffsController from '@/actions/App/Http/Controllers/Admin/Scoring/PlayoffsController';
 import PoolController from '@/actions/App/Http/Controllers/Admin/Scoring/PoolController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -38,6 +41,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { index as scoringIndex } from '@/routes/admin/scoring';
 import { show as tournamentShow } from '@/routes/admin/tournaments';
+import { show as standingsShow } from '@/routes/standings';
 import type {
     ScoringMatch,
     ScoringPool,
@@ -50,6 +54,9 @@ export default function ScoringShow({
     category,
     pools,
     unassignedTeams,
+    bracket,
+    poolPlay,
+    availableUmpires,
     permissions,
 }: ScoringShowProps) {
     return (
@@ -71,25 +78,47 @@ export default function ScoringShow({
                             description={`${category.division_label} · ${category.skill_level_label} · ${category.format_label}`}
                         />
                     </div>
-                    {permissions.canManage && unassignedTeams.length > 0 && (
-                        <PoolFormDialog
-                            mode="create"
-                            tournament={tournament.slug}
-                            category={category.id}
-                            availableTeams={unassignedTeams}
-                            initialSelectedIds={[]}
-                        >
-                            <Button>
-                                <Plus className="h-4 w-4" /> New pool
-                            </Button>
-                        </PoolFormDialog>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button asChild variant="outline">
+                            <Link
+                                href={
+                                    standingsShow([
+                                        tournament.slug,
+                                        category.slug,
+                                    ]).url
+                                }
+                            >
+                                Public standings view
+                            </Link>
+                        </Button>
+                        {permissions.canManage && unassignedTeams.length > 0 && (
+                            <PoolFormDialog
+                                mode="create"
+                                tournament={tournament.slug}
+                                category={category.id}
+                                availableTeams={unassignedTeams}
+                                initialSelectedIds={[]}
+                            >
+                                <Button>
+                                    <Plus className="h-4 w-4" /> New pool
+                                </Button>
+                            </PoolFormDialog>
+                        )}
+                    </div>
                 </div>
 
                 <FormatRules
                     format={category.format}
                     rrPoints={category.rr_points_to_win}
                     elimPoints={category.elim_points_to_win}
+                />
+
+                <PlayoffPanel
+                    tournamentSlug={tournament.slug}
+                    categoryId={category.id}
+                    poolPlay={poolPlay}
+                    bracket={bracket}
+                    canManage={permissions.canManage}
                 />
 
                 {unassignedTeams.length > 0 && (
@@ -129,6 +158,7 @@ export default function ScoringShow({
                                 categoryId={category.id}
                                 unassignedTeams={unassignedTeams}
                                 rrPoints={category.rr_points_to_win}
+                                availableUmpires={availableUmpires}
                                 canManage={permissions.canManage}
                             />
                         ))}
@@ -211,12 +241,453 @@ function RuleCard({ title, body }: { title: string; body: React.ReactNode }) {
     );
 }
 
+type PoolPlayProgress = {
+    total: number;
+    finalized: number;
+    has_matches: boolean;
+    complete: boolean;
+};
+
+type BracketMatchPayload = {
+    id: string;
+    sequence: number;
+    stage: string;
+    team_a: { id: string; display_name: string } | null;
+    team_b: { id: string; display_name: string } | null;
+    score_a: number | null;
+    score_b: number | null;
+    winner_team_id: string | null;
+    played_at: string | null;
+};
+
+type BracketPayload = {
+    semis: BracketMatchPayload[];
+    bronze: BracketMatchPayload | null;
+    final: BracketMatchPayload | null;
+} | null;
+
+type PlayoffPreview = {
+    semis: { slot: string; team_a: string | null; team_b: string | null }[];
+    source: string;
+};
+
+function PlayoffPanel({
+    tournamentSlug,
+    categoryId,
+    poolPlay,
+    bracket,
+    canManage,
+}: {
+    tournamentSlug: string;
+    categoryId: string;
+    poolPlay: PoolPlayProgress;
+    bracket: BracketPayload;
+    canManage: boolean;
+}) {
+    const champion =
+        bracket?.final?.played_at && bracket.final.winner_team_id
+            ? bracket.final.winner_team_id === bracket.final.team_a?.id
+                ? bracket.final.team_a
+                : bracket.final.team_b
+            : null;
+
+    return (
+        <section className="rounded-2xl border bg-card p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <Trophy className="h-5 w-5" />
+                    </span>
+                    <div>
+                        <h2 className="text-base font-semibold">Playoffs</h2>
+                        <PlayoffStatusLine
+                            poolPlay={poolPlay}
+                            bracket={bracket}
+                            champion={champion}
+                        />
+                    </div>
+                </div>
+
+                {canManage && (
+                    <PlayoffActions
+                        tournamentSlug={tournamentSlug}
+                        categoryId={categoryId}
+                        poolPlay={poolPlay}
+                        bracket={bracket}
+                    />
+                )}
+            </div>
+
+            {bracket && <BracketSummary bracket={bracket} />}
+        </section>
+    );
+}
+
+function PlayoffStatusLine({
+    poolPlay,
+    bracket,
+    champion,
+}: {
+    poolPlay: PoolPlayProgress;
+    bracket: BracketPayload;
+    champion: { id: string; display_name: string } | null;
+}) {
+    if (!poolPlay.has_matches) {
+        return (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+                Generate pool matches first — the playoff bracket is built from
+                the final pool standings.
+            </p>
+        );
+    }
+
+    if (!poolPlay.complete && !bracket) {
+        const remaining = poolPlay.total - poolPlay.finalized;
+        return (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+                Pool play in progress —{' '}
+                <span className="font-medium text-foreground">
+                    {poolPlay.finalized}/{poolPlay.total}
+                </span>{' '}
+                matches done, {remaining} remaining before the bracket can be
+                generated.
+            </p>
+        );
+    }
+
+    if (poolPlay.complete && !bracket) {
+        return (
+            <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300">
+                Pool play complete — ready to generate the playoff bracket.
+            </p>
+        );
+    }
+
+    if (bracket && champion) {
+        return (
+            <p className="mt-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                🏆 Champion: {champion.display_name}
+            </p>
+        );
+    }
+
+    if (bracket) {
+        return (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+                Bracket in progress — score the semifinals to advance teams
+                automatically.
+            </p>
+        );
+    }
+
+    return null;
+}
+
+function PlayoffActions({
+    tournamentSlug,
+    categoryId,
+    poolPlay,
+    bracket,
+}: {
+    tournamentSlug: string;
+    categoryId: string;
+    poolPlay: PoolPlayProgress;
+    bracket: BracketPayload;
+}) {
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const [resetOpen, setResetOpen] = useState(false);
+    const [preview, setPreview] = useState<PlayoffPreview | null>(null);
+    const [loadingPreview, setLoadingPreview] = useState(false);
+    const [previewError, setPreviewError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+
+    const openPreview = async () => {
+        setPreviewOpen(true);
+        setLoadingPreview(true);
+        setPreviewError(null);
+        try {
+            const res = await fetch(
+                PlayoffsController.preview({
+                    tournament: tournamentSlug,
+                    category: categoryId,
+                }).url,
+                {
+                    headers: { Accept: 'application/json' },
+                    credentials: 'same-origin',
+                },
+            );
+            if (!res.ok) {
+                const json = await res.json().catch(() => ({}));
+                const msg =
+                    json?.errors?.bracket?.[0] ??
+                    json?.message ??
+                    'Unable to compute preview.';
+                setPreviewError(msg);
+                setPreview(null);
+            } else {
+                setPreview(await res.json());
+            }
+        } catch {
+            setPreviewError('Network error fetching preview.');
+        } finally {
+            setLoadingPreview(false);
+        }
+    };
+
+    const confirmGenerate = () => {
+        setSubmitting(true);
+        router.post(
+            PlayoffsController.store({
+                tournament: tournamentSlug,
+                category: categoryId,
+            }).url,
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setSubmitting(false);
+                    setPreviewOpen(false);
+                },
+            },
+        );
+    };
+
+    const confirmReset = () => {
+        setSubmitting(true);
+        router.delete(
+            PlayoffsController.destroy({
+                tournament: tournamentSlug,
+                category: categoryId,
+            }).url,
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setSubmitting(false);
+                    setResetOpen(false);
+                },
+            },
+        );
+    };
+
+    if (bracket) {
+        return (
+            <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                        <Trash2 className="h-3.5 w-3.5" /> Reset bracket
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reset playoff bracket?</DialogTitle>
+                        <DialogDescription>
+                            This deletes the semifinal, bronze, and final
+                            matches. Pool play and standings stay intact. Any
+                            bracket match that's already finalized must be
+                            score-reset first.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button variant="ghost" disabled={submitting}>
+                                Cancel
+                            </Button>
+                        </DialogClose>
+                        <Button
+                            variant="destructive"
+                            onClick={confirmReset}
+                            disabled={submitting}
+                        >
+                            {submitting ? 'Resetting…' : 'Reset bracket'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        );
+    }
+
+    return (
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+            <DialogTrigger asChild>
+                <Button
+                    onClick={openPreview}
+                    disabled={!poolPlay.complete}
+                    size="sm"
+                >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Generate playoffs
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Generate playoff bracket</DialogTitle>
+                    <DialogDescription>
+                        These pairings come from the final pool standings.
+                        You can reset the bracket later if needed.
+                    </DialogDescription>
+                </DialogHeader>
+
+                {loadingPreview ? (
+                    <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Computing pairings…
+                    </div>
+                ) : previewError ? (
+                    <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                        {previewError}
+                    </p>
+                ) : preview ? (
+                    <div className="space-y-3">
+                        <p className="text-xs text-muted-foreground">
+                            {preview.source}
+                        </p>
+                        <ul className="space-y-2">
+                            {preview.semis.map((sf) => (
+                                <li
+                                    key={sf.slot}
+                                    className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2 text-sm"
+                                >
+                                    <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                        {sf.slot}
+                                    </span>
+                                    <span className="flex-1 truncate text-right">
+                                        {sf.team_a ?? 'TBD'}{' '}
+                                        <span className="text-muted-foreground">
+                                            vs
+                                        </span>{' '}
+                                        {sf.team_b ?? 'TBD'}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                        <p className="text-xs text-muted-foreground">
+                            The bronze and final slots stay empty until each
+                            semifinal finalizes.
+                        </p>
+                    </div>
+                ) : null}
+
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="ghost" disabled={submitting}>
+                            Cancel
+                        </Button>
+                    </DialogClose>
+                    <Button
+                        onClick={confirmGenerate}
+                        disabled={
+                            submitting ||
+                            loadingPreview ||
+                            !!previewError ||
+                            !preview
+                        }
+                    >
+                        {submitting ? 'Generating…' : 'Generate bracket'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function BracketSummary({ bracket }: { bracket: NonNullable<BracketPayload> }) {
+    return (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {bracket.semis.map((semi, idx) => (
+                <BracketMiniCard
+                    key={semi.id}
+                    label={`Semifinal ${idx + 1}`}
+                    match={semi}
+                />
+            ))}
+            {bracket.final && (
+                <BracketMiniCard
+                    label="Championship"
+                    match={bracket.final}
+                    accent="champion"
+                    icon={<Crown className="h-3.5 w-3.5" />}
+                />
+            )}
+            {bracket.bronze && (
+                <BracketMiniCard
+                    label="Battle for 3rd"
+                    match={bracket.bronze}
+                    accent="bronze"
+                    icon={<Medal className="h-3.5 w-3.5" />}
+                />
+            )}
+        </div>
+    );
+}
+
+function BracketMiniCard({
+    label,
+    match,
+    accent,
+    icon,
+}: {
+    label: string;
+    match: BracketMatchPayload;
+    accent?: 'champion' | 'bronze';
+    icon?: React.ReactNode;
+}) {
+    const teamA = match.team_a?.display_name ?? 'TBD';
+    const teamB = match.team_b?.display_name ?? 'TBD';
+    const aWon =
+        match.winner_team_id !== null &&
+        match.winner_team_id === match.team_a?.id;
+    const bWon =
+        match.winner_team_id !== null &&
+        match.winner_team_id === match.team_b?.id;
+
+    return (
+        <div
+            className={cn(
+                'overflow-hidden rounded-lg border bg-card',
+                accent === 'champion' &&
+                    'border-amber-500/40 bg-amber-500/5',
+                accent === 'bronze' && 'border-orange-500/30',
+            )}
+        >
+            <div className="flex items-center gap-1.5 border-b bg-muted/40 px-3 py-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                {icon}
+                {label}
+            </div>
+            <div className="divide-y text-sm">
+                <div
+                    className={cn(
+                        'flex items-center justify-between gap-2 px-3 py-1.5',
+                        aWon && 'bg-emerald-500/10 font-semibold',
+                    )}
+                >
+                    <span className="truncate">{teamA}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                        {match.score_a ?? '—'}
+                    </span>
+                </div>
+                <div
+                    className={cn(
+                        'flex items-center justify-between gap-2 px-3 py-1.5',
+                        bWon && 'bg-emerald-500/10 font-semibold',
+                    )}
+                >
+                    <span className="truncate">{teamB}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                        {match.score_b ?? '—'}
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function PoolBlock({
     pool,
     tournamentSlug,
     categoryId,
     unassignedTeams,
     rrPoints,
+    availableUmpires,
     canManage,
 }: {
     pool: ScoringPool;
@@ -224,6 +695,7 @@ function PoolBlock({
     categoryId: string;
     unassignedTeams: ScoringTeam[];
     rrPoints: number;
+    availableUmpires: ScoringUmpire[];
     canManage: boolean;
 }) {
     const allMatches = pool.matches.length;
@@ -340,6 +812,7 @@ function PoolBlock({
                                     tournamentSlug={tournamentSlug}
                                     categoryId={categoryId}
                                     maxScore={rrPoints + 10}
+                                    availableUmpires={availableUmpires}
                                     canManage={canManage}
                                 />
                             ))}
@@ -419,12 +892,14 @@ function MatchRow({
     tournamentSlug,
     categoryId,
     maxScore,
+    availableUmpires,
     canManage,
 }: {
     match: ScoringMatch;
     tournamentSlug: string;
     categoryId: string;
     maxScore: number;
+    availableUmpires: ScoringUmpire[];
     canManage: boolean;
 }) {
     const [editing, setEditing] = useState(
@@ -490,13 +965,42 @@ function MatchRow({
 
     return (
         <li className="rounded-lg border bg-background p-3">
-            <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                <span>Match {match.sequence}</span>
-                {recorded && !editing && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                        Recorded
-                    </span>
-                )}
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>Game {match.sequence}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                    {canManage && (
+                        <CourtAssign
+                            tournamentSlug={tournamentSlug}
+                            categoryId={categoryId}
+                            matchId={match.id}
+                            initialCourtNumber={match.court_number}
+                        />
+                    )}
+                    {!canManage && match.court_number !== null && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium">
+                            Court {match.court_number}
+                        </span>
+                    )}
+                    {canManage && (
+                        <UmpireAssign
+                            tournamentSlug={tournamentSlug}
+                            categoryId={categoryId}
+                            matchId={match.id}
+                            assigned={match.assigned_umpire}
+                            availableUmpires={availableUmpires}
+                        />
+                    )}
+                    {!canManage && match.assigned_umpire && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium">
+                            Umpire: {match.assigned_umpire.name}
+                        </span>
+                    )}
+                    {recorded && !editing && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                            Recorded
+                        </span>
+                    )}
+                </div>
             </div>
 
             {!editing && recorded ? (
@@ -588,6 +1092,128 @@ function MatchRow({
                 </form>
             )}
         </li>
+    );
+}
+
+function CourtAssign({
+    tournamentSlug,
+    categoryId,
+    matchId,
+    initialCourtNumber,
+}: {
+    tournamentSlug: string;
+    categoryId: string;
+    matchId: string;
+    initialCourtNumber: string | null;
+}) {
+    const [value, setValue] = useState<string>(initialCourtNumber ?? '');
+    const [saving, setSaving] = useState(false);
+
+    const save = () => {
+        const trimmed = value.trim();
+        const next = trimmed === '' ? null : trimmed;
+        if ((initialCourtNumber ?? '') === (next ?? '')) {
+            return;
+        }
+        setSaving(true);
+        router.patch(
+            MatchController.assign({
+                tournament: tournamentSlug,
+                category: categoryId,
+                match: matchId,
+            }).url,
+            { court_number: next },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onFinish: () => setSaving(false),
+            },
+        );
+    };
+
+    return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/70 px-2 py-0.5">
+            <span className="text-[10px] font-medium text-muted-foreground">
+                Court
+            </span>
+            <input
+                type="text"
+                inputMode="numeric"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onBlur={save}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        (e.target as HTMLInputElement).blur();
+                    }
+                }}
+                placeholder="—"
+                maxLength={16}
+                disabled={saving}
+                aria-label="Court number"
+                className="w-12 border-0 bg-transparent p-0 text-center text-[11px] font-semibold tabular-nums outline-none placeholder:text-muted-foreground/50 focus:ring-0"
+            />
+        </span>
+    );
+}
+
+function UmpireAssign({
+    tournamentSlug,
+    categoryId,
+    matchId,
+    assigned,
+    availableUmpires,
+}: {
+    tournamentSlug: string;
+    categoryId: string;
+    matchId: string;
+    assigned: { id: string; name: string } | null;
+    availableUmpires: ScoringUmpire[];
+}) {
+    const [saving, setSaving] = useState(false);
+
+    const save = (value: string) => {
+        const next = value === '' ? null : value;
+        if ((assigned?.id ?? '') === (next ?? '')) {
+            return;
+        }
+        setSaving(true);
+        router.patch(
+            MatchController.assignUmpire({
+                tournament: tournamentSlug,
+                category: categoryId,
+                match: matchId,
+            }).url,
+            { assigned_umpire_user_id: next },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onFinish: () => setSaving(false),
+            },
+        );
+    };
+
+    return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/70 px-2 py-0.5">
+            <span className="text-[10px] font-medium text-muted-foreground">
+                Umpire
+            </span>
+            <select
+                value={assigned?.id ?? ''}
+                onChange={(e) => save(e.target.value)}
+                disabled={saving}
+                aria-label="Assigned umpire"
+                className="max-w-[12rem] truncate border-0 bg-transparent p-0 text-[11px] font-semibold outline-none focus:ring-0"
+            >
+                <option value="">— Unassigned —</option>
+                {availableUmpires.map((u) => (
+                    <option key={u.id} value={u.id}>
+                        {u.name}
+                    </option>
+                ))}
+            </select>
+        </span>
     );
 }
 

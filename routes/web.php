@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\Scoring\MatchController;
+use App\Http\Controllers\Admin\Scoring\PlayoffsController;
 use App\Http\Controllers\Admin\Scoring\PoolController;
 use App\Http\Controllers\Admin\Scoring\ScoringController;
 use App\Http\Controllers\Admin\TournamentCategoryController;
@@ -8,7 +9,9 @@ use App\Http\Controllers\Admin\TournamentController;
 use App\Http\Controllers\Player\TournamentController as PlayerTournamentController;
 use App\Http\Controllers\Public\PartnerJoinController;
 use App\Http\Controllers\Public\TournamentRegistrationController;
+use App\Http\Controllers\StandingsController;
 use App\Http\Controllers\Teams\TeamInvitationController;
+use App\Http\Controllers\Umpire\ScoringController as UmpireScoringController;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
 
@@ -62,11 +65,29 @@ Route::middleware(['auth', 'verified'])->prefix('tournaments')->name('admin.tour
     Route::delete('{tournament:slug}/categories/{category}/pools/{pool}', [PoolController::class, 'destroy'])->name('scoring.pools.destroy');
     Route::post('{tournament:slug}/categories/{category}/pools/{pool}/generate', [PoolController::class, 'generate'])->name('scoring.pools.generate');
     Route::patch('{tournament:slug}/categories/{category}/matches/{match}', [MatchController::class, 'update'])->name('scoring.matches.update');
+    Route::patch('{tournament:slug}/categories/{category}/matches/{match}/assign', [MatchController::class, 'assign'])->name('scoring.matches.assign');
+    Route::patch('{tournament:slug}/categories/{category}/matches/{match}/assign-umpire', [MatchController::class, 'assignUmpire'])->name('scoring.matches.assign-umpire');
     Route::delete('{tournament:slug}/categories/{category}/matches/{match}/score', [MatchController::class, 'reset'])->name('scoring.matches.reset');
+
+    Route::get('{tournament:slug}/categories/{category}/playoffs/preview', [PlayoffsController::class, 'preview'])->name('scoring.playoffs.preview');
+    Route::post('{tournament:slug}/categories/{category}/playoffs', [PlayoffsController::class, 'store'])->name('scoring.playoffs.store');
+    Route::delete('{tournament:slug}/categories/{category}/playoffs', [PlayoffsController::class, 'destroy'])->name('scoring.playoffs.destroy');
 });
 
 Route::middleware(['auth', 'verified'])->prefix('scoring')->name('admin.scoring.')->group(function () {
     Route::get('/', [ScoringController::class, 'index'])->name('index');
+});
+
+Route::middleware(['auth', 'verified'])->prefix('standings')->name('standings.')->group(function () {
+    Route::get('{tournament:slug}', [StandingsController::class, 'index'])->name('index');
+    Route::get('{tournament:slug}/{category:slug}', [StandingsController::class, 'show'])->name('show');
+});
+
+Route::middleware(['auth', 'verified'])->prefix('umpire')->name('umpire.')->group(function () {
+    Route::get('/', [UmpireScoringController::class, 'index'])->name('index');
+    Route::get('matches/{match}', [UmpireScoringController::class, 'show'])->name('matches.show');
+    Route::patch('matches/{match}/score', [UmpireScoringController::class, 'updateScore'])->name('matches.score');
+    Route::post('matches/{match}/finalize', [UmpireScoringController::class, 'finalize'])->name('matches.finalize');
 });
 
 require __DIR__.'/settings.php';

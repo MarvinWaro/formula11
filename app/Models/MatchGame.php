@@ -12,12 +12,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'pool_id',
     'stage',
     'sequence',
+    'court_number',
+    'assigned_umpire_user_id',
     'team_a_id',
     'team_b_id',
     'score_a',
     'score_b',
     'winner_team_id',
     'played_at',
+    'scored_by_user_id',
+    'scored_at',
 ])]
 class MatchGame extends Model
 {
@@ -76,9 +80,30 @@ class MatchGame extends Model
         return $this->belongsTo(TournamentTeam::class, 'winner_team_id');
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function scoredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'scored_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function assignedUmpire(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_umpire_user_id');
+    }
+
     public function isComplete(): bool
     {
         return $this->score_a !== null && $this->score_b !== null;
+    }
+
+    public function isFinalized(): bool
+    {
+        return $this->played_at !== null && $this->winner_team_id !== null;
     }
 
     /**
@@ -88,6 +113,7 @@ class MatchGame extends Model
     {
         return [
             'played_at' => 'datetime',
+            'scored_at' => 'datetime',
         ];
     }
 }

@@ -48,6 +48,7 @@ class HandleInertiaRequests extends Middleware
                     'can_manage_tournaments' => $user->hasPermission('tournaments.view'),
                     'can_browse_tournaments' => $user->hasRole(Role::PLAYER) && ! $user->hasPermission('tournaments.view'),
                     'can_score' => $user->hasPermission('scoring.view'),
+                    'can_umpire_score' => $user->hasPermission('scoring.score'),
                     'role_names' => $user->roleNames()->all(),
                 ] : null,
             ],
